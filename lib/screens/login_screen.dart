@@ -41,10 +41,10 @@ class _LoginScreenState extends State<LoginScreen>
 
   Future<void> _login() async {
     final email = _emailCtrl.text.trim();
-    final phone = _passCtrl.text.trim();
+    final password = _passCtrl.text.trim();
 
-    if (email.isEmpty || phone.isEmpty) {
-      setState(() => _errorMessage = 'Vui lòng nhập đầy đủ email và số điện thoại');
+    if (email.isEmpty || password.isEmpty) {
+      setState(() => _errorMessage = 'Vui lòng nhập đầy đủ email và mật khẩu');
       return;
     }
 
@@ -72,9 +72,9 @@ class _LoginScreenState extends State<LoginScreen>
       final userDoc = querySnapshot.docs.first;
       final userData = userDoc.data();
 
-      // Kiểm tra mật khẩu (dùng phone làm mật khẩu)
-      final storedPhone = userData['phone'] ?? '';
-      if (storedPhone != phone) {
+      // Kiểm tra mật khẩu
+      final storedPassword = userData['password'] ?? '';
+      if (storedPassword != password) {
         setState(() {
           _loading = false;
           _errorMessage = 'Mật khẩu không đúng';
@@ -100,6 +100,7 @@ class _LoginScreenState extends State<LoginScreen>
         phone: userData['phone'] ?? '',
         role: userData['role'] ?? '',
         status: userData['status'] ?? '',
+        ownerId: userData['ownerId'] ?? userData['createdBy'] ?? '',
       );
 
       if (mounted) {
@@ -221,11 +222,11 @@ class _LoginScreenState extends State<LoginScreen>
         TextFormField(
           controller: _passCtrl,
           obscureText: _obscure,
-          keyboardType: TextInputType.phone,
+          keyboardType: TextInputType.text,
           style: const TextStyle(color: AppTheme.textPrimary),
           decoration: InputDecoration(
-            labelText: 'Mật khẩu (Số điện thoại)',
-            hintText: 'Nhập số điện thoại',
+            labelText: 'Mật khẩu',
+            hintText: 'Nhập mật khẩu',
             prefixIcon: const Icon(Icons.lock_outline),
             suffixIcon: IconButton(
               icon: Icon(

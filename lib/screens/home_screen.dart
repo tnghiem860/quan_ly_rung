@@ -40,6 +40,7 @@ class HomeScreen extends StatelessWidget {
                 StreamBuilder<QuerySnapshot>(
                   stream: FirebaseFirestore.instance
                       .collection('logbooks')
+                      .where('createdBy', isEqualTo: UserSession().uid)
                       .orderBy('timestamp', descending: true)
                       .limit(5)
                       .snapshots(),
@@ -244,10 +245,10 @@ class HomeScreen extends StatelessWidget {
   Widget _buildStatsGrid(BuildContext context) {
     return FutureBuilder<List<int>>(
       future: Future.wait([
-        FirebaseFirestore.instance.collection('projects').count().get().then((res) => res.count ?? 0),
-        FirebaseFirestore.instance.collection('logbooks').count().get().then((res) => res.count ?? 0),
-        FirebaseFirestore.instance.collection('logbooks').where('synced', isEqualTo: false).count().get().then((res) => res.count ?? 0),
-        FirebaseFirestore.instance.collection('checkins').count().get().then((res) => res.count ?? 0),
+        FirebaseFirestore.instance.collection('projects').where('ownerId', isEqualTo: UserSession().ownerId).count().get().then((res) => res.count ?? 0),
+        FirebaseFirestore.instance.collection('logbooks').where('createdBy', isEqualTo: UserSession().uid).count().get().then((res) => res.count ?? 0),
+        FirebaseFirestore.instance.collection('logbooks').where('createdBy', isEqualTo: UserSession().uid).where('synced', isEqualTo: false).count().get().then((res) => res.count ?? 0),
+        FirebaseFirestore.instance.collection('checkins').where('createdBy', isEqualTo: UserSession().uid).count().get().then((res) => res.count ?? 0),
       ]),
       builder: (context, snapshot) {
         final data = snapshot.data ?? [0, 0, 0, 0];

@@ -13,6 +13,7 @@ class UserSession {
   String? _phone;
   String? _role;
   String? _status;
+  String? _ownerId;
 
   // ── Getters ──
   String get uid => _uid ?? '';
@@ -21,6 +22,7 @@ class UserSession {
   String get phone => _phone ?? '';
   String get role => _role ?? '';
   String get status => _status ?? '';
+  String get ownerId => _ownerId ?? '';
 
   bool get isLoggedIn => _uid != null && _uid!.isNotEmpty;
 
@@ -44,6 +46,7 @@ class UserSession {
     required String phone,
     required String role,
     required String status,
+    required String ownerId,
   }) {
     _uid = uid;
     _fullName = fullName;
@@ -51,6 +54,7 @@ class UserSession {
     _phone = phone;
     _role = role;
     _status = status;
+    _ownerId = ownerId;
   }
 
   /// Xoá toàn bộ thông tin khi đăng xuất.
@@ -61,5 +65,6 @@ class UserSession {
     _phone = null;
     _role = null;
     _status = null;
+    _ownerId = null;
   }
 }
