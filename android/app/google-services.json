@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "951154714575",
+    "firebase_url": "https://nguoi-di-rung-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "nguoi-di-rung",
+    "storage_bucket": "nguoi-di-rung.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:951154714575:android:edf0c51b194bd64c7294ba",
+        "android_client_info": {
+          "package_name": "com.example.project_projectck"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDKXX1s0yBaz8Z1TAlvE6RXkRy9xSJJznA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

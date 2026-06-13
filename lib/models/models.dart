@@ -1,0 +1,140 @@
+class WorkerUser {
+  final String id;
+  final String name;
+  final String email;
+  final String phone;
+  final String role;
+  String status;
+
+  WorkerUser({
+    required this.id,
+    required this.name,
+    required this.email,
+    required this.phone,
+    this.role = 'Forest Worker',
+    this.status = 'Active',
+  });
+}
+
+class LogbookEntry {
+  final String id;
+  final DateTime date;
+  final String activityType;
+  final String description;
+  final double latitude;
+  final double longitude;
+  final String location;
+  final String project;
+  final List<String> photos;
+  bool synced;
+
+  LogbookEntry({
+    required this.id,
+    required this.date,
+    required this.activityType,
+    required this.description,
+    required this.latitude,
+    required this.longitude,
+    required this.location,
+    required this.project,
+    this.photos = const [],
+    this.synced = false,
+  });
+
+  factory LogbookEntry.fromFirestore(Map<String, dynamic> data, String id) {
+    return LogbookEntry(
+      id: id,
+      date: data['timestamp'] != null ? (data['timestamp'] as dynamic).toDate() : DateTime.now(),
+      activityType: data['activity'] ?? 'Không rõ',
+      description: data['description'] ?? '',
+      latitude: data['location']?['lat']?.toDouble() ?? 0.0,
+      longitude: data['location']?['lng']?.toDouble() ?? 0.0,
+      location: '${data['location']?['lat']?.toStringAsFixed(4)}, ${data['location']?['lng']?.toStringAsFixed(4)}',
+      project: data['project'] ?? 'Không rõ',
+      photos: List<String>.from(data['photos'] ?? []),
+      synced: data['synced'] ?? true,
+    );
+  }
+}
+
+class CheckInRecord {
+  final String id;
+  final DateTime timestamp;
+  final double latitude;
+  final double longitude;
+  final String project;
+  final String notes;
+
+  CheckInRecord({
+    required this.id,
+    required this.timestamp,
+    required this.latitude,
+    required this.longitude,
+    required this.project,
+    this.notes = '',
+  });
+
+  factory CheckInRecord.fromFirestore(Map<String, dynamic> data, String id) {
+    return CheckInRecord(
+      id: id,
+      timestamp: data['timestamp'] != null ? (data['timestamp'] as dynamic).toDate() : DateTime.now(),
+      latitude: data['latitude']?.toDouble() ?? 0.0,
+      longitude: data['longitude']?.toDouble() ?? 0.0,
+      project: data['project'] ?? 'Không rõ',
+      notes: data['notes'] ?? '',
+    );
+  }
+}
+
+class ForestProject {
+  final String id;
+  final String name;
+  final String province;
+  final String status;
+  final double areaHa;
+  final String treeSpecies;
+
+  ForestProject({
+    required this.id,
+    required this.name,
+    required this.province,
+    required this.status,
+    required this.areaHa,
+    required this.treeSpecies,
+  });
+}
+
+class TreeRecord {
+  final String plotCode;
+  final String species;
+  final double dbhCm;
+  final double heightM;
+  final int quantity;
+  final String project;
+
+  TreeRecord({
+    required this.plotCode,
+    required this.species,
+    required this.dbhCm,
+    required this.heightM,
+    required this.quantity,
+    required this.project,
+  });
+}
+
+const List<String> activityTypes = [
+  'Trồng cây',
+  'Chăm sóc cây',
+  'Bón phân',
+  'Kiểm tra sinh trưởng',
+  'Tuần tra',
+  'Phòng cháy chữa cháy',
+];
+
+final List<ForestProject> sampleProjects = [
+  ForestProject(id: 'PRJ-001', name: 'Dak Lak Project 01', province: 'Đắk Lắk', status: 'Active', areaHa: 1250.50, treeSpecies: 'Keo Lai'),
+  ForestProject(id: 'PRJ-002', name: 'Lam Dong Project 02', province: 'Lâm Đồng', status: 'Active', areaHa: 980.75, treeSpecies: 'Bạch Đàn'),
+  ForestProject(id: 'PRJ-003', name: 'Gia Lai Project 01', province: 'Gia Lai', status: 'Surveying', areaHa: 1520.30, treeSpecies: 'Thông'),
+];
+
+final List<LogbookEntry> sampleLogs = [];
