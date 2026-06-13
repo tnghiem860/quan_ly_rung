@@ -4,8 +4,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:convert';
 import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import '../main.dart';
 import '../models/models.dart';
+import '../services/user_session.dart';
 
 class NewLogbookScreen extends StatefulWidget {
   const NewLogbookScreen({super.key});
@@ -171,14 +173,19 @@ class _NewLogbookScreenState extends State<NewLogbookScreen> {
     setState(() => _saving = true);
 
     try {
+      // Kiểm tra mạng
+      final connectivityResult = await Connectivity().checkConnectivity();
+      bool isOffline = connectivityResult == ConnectivityResult.none;
+
       // Mã hóa ảnh sang chuỗi base64
       List<String> photoData = [];
       if (_pickedPhotos.isNotEmpty) {
         photoData = await _encodePhotosToBase64();
       }
 
-      // Gửi dữ liệu lên Firestore
-      await FirebaseFirestore.instance.collection('logbooks').add({
+      // Chuẩn bị dữ liệu
+      final docRef = FirebaseFirestore.instance.collection('logbooks').doc();
+      final dataToSave = {
         'activity': _selectedActivity,
         'project': _selectedProject,
         'description': _descCtrl.text,
@@ -189,15 +196,28 @@ class _NewLogbookScreenState extends State<NewLogbookScreen> {
           'lng': _lng ?? 0,
         },
         'timestamp': Timestamp.fromDate(DateTime.now()),
-        'synced': true,
-      });
+        'synced': !isOffline,
+        'createdBy': UserSession().uid,
+      };
+
+      // Ghi dữ liệu
+      if (isOffline) {
+        // Không dùng await để tránh treo giao diện khi mất mạng
+        docRef.set(dataToSave);
+      } else {
+        // Đợi server xác nhận nếu đang có mạng
+        await docRef.set(dataToSave);
+      }
 
       if (mounted) {
         Navigator.pop(context);
+        final msg = isOffline 
+            ? 'Đã lưu ngoại tuyến! Sẽ tự động đồng bộ khi có mạng.'
+            : 'Nhật ký đã lưu lên hệ thống! (${photoData.length} ảnh)';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Nhật ký đã lưu lên Firestore! (${photoData.length} ảnh)'),
-            backgroundColor: AppTheme.success,
+            content: Text(msg, style: const TextStyle(color: Colors.white)),
+            backgroundColor: isOffline ? AppTheme.warning : AppTheme.success,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),

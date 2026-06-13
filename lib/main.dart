@@ -12,6 +12,11 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
   
+  // Kích hoạt Offline Persistence cho Web và các nền tảng
+  FirebaseFirestore.instance.settings = const Settings(
+    persistenceEnabled: true,
+  );
+  
   // Khởi tạo dữ liệu mặc định nếu chưa có
   await _seedDefaultData();
 

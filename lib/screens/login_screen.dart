@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../main.dart';
+import '../services/user_session.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -10,10 +12,11 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen>
     with SingleTickerProviderStateMixin {
-  final _emailCtrl = TextEditingController(text: 'worker@forest.vn');
-  final _passCtrl = TextEditingController(text: '••••••••');
+  final _emailCtrl = TextEditingController();
+  final _passCtrl = TextEditingController();
   bool _obscure = true;
   bool _loading = false;
+  String? _errorMessage;
   late AnimationController _animCtrl;
   late Animation<double> _fadeAnim;
 
@@ -37,10 +40,76 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Future<void> _login() async {
-    setState(() => _loading = true);
-    await Future.delayed(const Duration(milliseconds: 1200));
-    if (mounted) {
-      Navigator.pushReplacementNamed(context, '/home');
+    final email = _emailCtrl.text.trim();
+    final phone = _passCtrl.text.trim();
+
+    if (email.isEmpty || phone.isEmpty) {
+      setState(() => _errorMessage = 'Vui lòng nhập đầy đủ email và số điện thoại');
+      return;
+    }
+
+    setState(() {
+      _loading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      // Query Firestore: tìm user có email khớp
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .where('email', isEqualTo: email)
+          .limit(1)
+          .get();
+
+      if (querySnapshot.docs.isEmpty) {
+        setState(() {
+          _loading = false;
+          _errorMessage = 'Tài khoản không tồn tại';
+        });
+        return;
+      }
+
+      final userDoc = querySnapshot.docs.first;
+      final userData = userDoc.data();
+
+      // Kiểm tra mật khẩu (dùng phone làm mật khẩu)
+      final storedPhone = userData['phone'] ?? '';
+      if (storedPhone != phone) {
+        setState(() {
+          _loading = false;
+          _errorMessage = 'Mật khẩu không đúng';
+        });
+        return;
+      }
+
+      // Kiểm tra trạng thái tài khoản
+      final status = userData['status'] ?? '';
+      if (status != 'active') {
+        setState(() {
+          _loading = false;
+          _errorMessage = 'Tài khoản đã bị khoá';
+        });
+        return;
+      }
+
+      // Đăng nhập thành công → lưu vào UserSession
+      UserSession().login(
+        uid: userData['uid'] ?? userDoc.id,
+        fullName: userData['fullName'] ?? userData['name'] ?? 'Không rõ',
+        email: userData['email'] ?? '',
+        phone: userData['phone'] ?? '',
+        role: userData['role'] ?? '',
+        status: userData['status'] ?? '',
+      );
+
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, '/home');
+      }
+    } catch (e) {
+      setState(() {
+        _loading = false;
+        _errorMessage = 'Lỗi kết nối: $e';
+      });
     }
   }
 
@@ -62,15 +131,11 @@ class _LoginScreenState extends State<LoginScreen>
                 _buildHeader(),
                 const SizedBox(height: 36),
                 _buildForm(),
-                const SizedBox(height: 12),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: () {},
-                    child: const Text('Quên mật khẩu?'),
-                  ),
-                ),
-                const SizedBox(height: 24),
+                if (_errorMessage != null) ...[
+                  const SizedBox(height: 16),
+                  _buildErrorMessage(),
+                ],
+                const SizedBox(height: 32),
                 _buildLoginButton(),
                 const SizedBox(height: 32),
                 _buildVersionInfo(),
@@ -106,7 +171,7 @@ class _LoginScreenState extends State<LoginScreen>
                   ),
             ),
             Text(
-              'Management Platform',
+              'Hệ thống Quản lý Rừng',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: AppTheme.accent,
                     fontSize: 11,
@@ -124,7 +189,7 @@ class _LoginScreenState extends State<LoginScreen>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Xin chào,\nWorker! 👋',
+          'Xin chào,\nKiểm lâm! 👋',
           style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                 fontSize: 32,
                 height: 1.2,
@@ -148,6 +213,7 @@ class _LoginScreenState extends State<LoginScreen>
           style: const TextStyle(color: AppTheme.textPrimary),
           decoration: const InputDecoration(
             labelText: 'Email',
+            hintText: 'Nhập email của bạn',
             prefixIcon: Icon(Icons.email_outlined),
           ),
         ),
@@ -155,9 +221,11 @@ class _LoginScreenState extends State<LoginScreen>
         TextFormField(
           controller: _passCtrl,
           obscureText: _obscure,
+          keyboardType: TextInputType.phone,
           style: const TextStyle(color: AppTheme.textPrimary),
           decoration: InputDecoration(
-            labelText: 'Mật khẩu',
+            labelText: 'Mật khẩu (Số điện thoại)',
+            hintText: 'Nhập số điện thoại',
             prefixIcon: const Icon(Icons.lock_outline),
             suffixIcon: IconButton(
               icon: Icon(
@@ -169,6 +237,29 @@ class _LoginScreenState extends State<LoginScreen>
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildErrorMessage() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppTheme.danger.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppTheme.danger.withOpacity(0.3), width: 0.5),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline, color: AppTheme.danger, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              _errorMessage!,
+              style: const TextStyle(color: AppTheme.danger, fontSize: 13),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

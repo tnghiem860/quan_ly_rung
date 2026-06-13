@@ -1,1 +1,28 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"nguoi-di-rung","appId":"1:951154714575:android:edf0c51b194bd64c7294ba","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"nguoi-di-rung","configurations":{"android":"1:951154714575:android:edf0c51b194bd64c7294ba","ios":"1:951154714575:ios:36a470d97a258a627294ba","macos":"1:951154714575:ios:36a470d97a258a627294ba","web":"1:951154714575:web:a2a6b348c70a2df77294ba","windows":"1:951154714575:web:9530dea658f385377294ba"}}}}}}
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "nguoi-di-rung",
+          "appId": "1:951154714575:android:edf0c51b194bd64c7294ba",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "nguoi-di-rung",
+          "configurations": {
+            "android": "1:951154714575:android:edf0c51b194bd64c7294ba",
+            "ios": "1:951154714575:ios:36a470d97a258a627294ba",
+            "macos": "1:951154714575:ios:36a470d97a258a627294ba",
+            "web": "1:951154714575:web:a2a6b348c70a2df77294ba",
+            "windows": "1:951154714575:web:9530dea658f385377294ba"
+          }
+        }
+      }
+    }
+  },
+  "firestore": {
+    "indexes": "firestore.indexes.json"
+  }
+}

@@ -1,8 +1,47 @@
 import 'package:flutter/material.dart';
 import '../main.dart';
+import '../services/user_session.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  int _logbookCount = 0;
+  int _checkinCount = 0;
+  int _projectCount = 0;
+  List<Map<String, dynamic>> _projects = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchData();
+  }
+
+  Future<void> _fetchData() async {
+    try {
+      final logbooks = await FirebaseFirestore.instance.collection('logbooks').where('createdBy', isEqualTo: UserSession().uid).count().get();
+      final checkins = await FirebaseFirestore.instance.collection('checkins').where('createdBy', isEqualTo: UserSession().uid).count().get();
+      final projectsSnap = await FirebaseFirestore.instance.collection('projects').get();
+
+      if (mounted) {
+        setState(() {
+          _logbookCount = logbooks.count ?? 0;
+          _checkinCount = checkins.count ?? 0;
+          _projectCount = projectsSnap.docs.length;
+          _projects = projectsSnap.docs.map((d) => d.data()).toList();
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -14,26 +53,49 @@ class ProfileScreen extends StatelessWidget {
           IconButton(icon: const Icon(Icons.edit_outlined), onPressed: () {}),
         ],
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            _buildProfileHeader(context),
-            const SizedBox(height: 20),
-            _buildInfoSection(context),
-            const SizedBox(height: 16),
-            _buildProjectsSection(context),
-            const SizedBox(height: 16),
-            _buildSettingsSection(context),
-            const SizedBox(height: 24),
-            _buildLogoutButton(context),
-            const SizedBox(height: 32),
-          ],
-        ),
-      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator(color: AppTheme.accent))
+          : StreamBuilder<DocumentSnapshot>(
+              stream: FirebaseFirestore.instance.collection('users').doc(UserSession().uid).snapshots(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) return const SizedBox();
+                final userData = snapshot.data!.data() as Map<String, dynamic>? ?? {};
+
+                return SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      _buildProfileHeader(context, userData),
+                      const SizedBox(height: 20),
+                      _buildInfoSection(context, userData),
+                      const SizedBox(height: 16),
+                      _buildProjectsSection(context),
+                      const SizedBox(height: 16),
+                      _buildSettingsSection(context),
+                      const SizedBox(height: 24),
+                      _buildLogoutButton(context),
+                      const SizedBox(height: 32),
+                    ],
+                  ),
+                );
+              },
+            ),
     );
   }
 
-  Widget _buildProfileHeader(BuildContext context) {
+  Widget _buildProfileHeader(BuildContext context, Map<String, dynamic> userData) {
+    final String name = userData['name'] ?? 'Không rõ';
+    final String role = userData['role'] ?? 'Forest Worker';
+    
+    String initials = 'U';
+    if (name.isNotEmpty) {
+      final parts = name.split(' ');
+      if (parts.length > 1) {
+        initials = '${parts.first[0]}${parts.last[0]}'.toUpperCase();
+      } else {
+        initials = name.substring(0, name.length >= 2 ? 2 : 1).toUpperCase();
+      }
+    }
+
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 28, 20, 28),
       decoration: const BoxDecoration(
@@ -50,8 +112,8 @@ class ProfileScreen extends StatelessWidget {
                   color: AppTheme.accent,
                   borderRadius: BorderRadius.circular(40),
                 ),
-                child: const Center(
-                  child: Text('TB', style: TextStyle(color: AppTheme.background, fontSize: 28, fontWeight: FontWeight.w700)),
+                child: Center(
+                  child: Text(initials, style: const TextStyle(color: AppTheme.background, fontSize: 28, fontWeight: FontWeight.w700)),
                 ),
               ),
               Positioned(
@@ -65,7 +127,7 @@ class ProfileScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 14),
-          const Text('Trần Văn B', style: TextStyle(color: AppTheme.textPrimary, fontSize: 20, fontWeight: FontWeight.w700)),
+          Text(name, style: const TextStyle(color: AppTheme.textPrimary, fontSize: 20, fontWeight: FontWeight.w700)),
           const SizedBox(height: 4),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -73,17 +135,17 @@ class ProfileScreen extends StatelessWidget {
               color: AppTheme.accent.withOpacity(0.2),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Text('Forest Worker', style: TextStyle(color: AppTheme.accent, fontSize: 12, fontWeight: FontWeight.w500)),
+            child: Text(role, style: const TextStyle(color: AppTheme.accent, fontSize: 12, fontWeight: FontWeight.w500)),
           ),
           const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _StatBadge(label: 'Nhật ký', value: '127'),
+              _StatBadge(label: 'Nhật ký', value: '$_logbookCount'),
               Container(width: 0.5, height: 36, color: AppTheme.border),
-              _StatBadge(label: 'Check-in', value: '89'),
+              _StatBadge(label: 'Check-in', value: '$_checkinCount'),
               Container(width: 0.5, height: 36, color: AppTheme.border),
-              _StatBadge(label: 'Dự án', value: '3'),
+              _StatBadge(label: 'Dự án', value: '$_projectCount'),
             ],
           ),
         ],
@@ -91,12 +153,12 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoSection(BuildContext context) {
+  Widget _buildInfoSection(BuildContext context, Map<String, dynamic> userData) {
     return _Section(
       title: 'Thông tin cá nhân',
       children: [
-        _InfoRow(icon: Icons.email_outlined, label: 'Email', value: 'tranvanb@forest.vn'),
-        _InfoRow(icon: Icons.phone_outlined, label: 'Điện thoại', value: '0901 234 567'),
+        _InfoRow(icon: Icons.email_outlined, label: 'Email', value: userData['email'] ?? 'Chưa cập nhật'),
+        _InfoRow(icon: Icons.phone_outlined, label: 'Điện thoại', value: userData['phone'] ?? 'Chưa cập nhật'),
         _InfoRow(icon: Icons.location_on_outlined, label: 'Khu vực', value: 'Đắk Lắk'),
         _InfoRow(icon: Icons.calendar_today_outlined, label: 'Gia nhập', value: '01/01/2023'),
       ],
@@ -104,13 +166,23 @@ class ProfileScreen extends StatelessWidget {
   }
 
   Widget _buildProjectsSection(BuildContext context) {
+    if (_projects.isEmpty) {
+      return const _Section(
+        title: 'Dự án được phân công',
+        children: [
+          Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Text('Chưa có dự án nào', style: TextStyle(color: AppTheme.textSecondary)),
+          )
+        ],
+      );
+    }
     return _Section(
       title: 'Dự án được phân công',
-      children: [
-        _ProjectRow(name: 'Dak Lak Project 01', status: 'Active'),
-        _ProjectRow(name: 'Lam Dong Project 02', status: 'Active'),
-        _ProjectRow(name: 'Gia Lai Project 01', status: 'Surveying'),
-      ],
+      children: _projects.map((p) => _ProjectRow(
+        name: p['name'] ?? 'Không rõ',
+        status: p['status'] ?? 'Không rõ',
+      )).toList(),
     );
   }
 
@@ -119,8 +191,6 @@ class ProfileScreen extends StatelessWidget {
       title: 'Cài đặt',
       children: [
         _SettingsRow(icon: Icons.notifications_outlined, label: 'Thông báo', trailing: Switch(value: true, onChanged: (_) {}, activeColor: AppTheme.accent)),
-        _SettingsRow(icon: Icons.cloud_sync_outlined, label: 'Tự động đồng bộ', trailing: Switch(value: true, onChanged: (_) {}, activeColor: AppTheme.accent)),
-        _SettingsRow(icon: Icons.wifi_off_outlined, label: 'Offline Mode', trailing: Switch(value: false, onChanged: (_) {}, activeColor: AppTheme.accent)),
         _SettingsRow(icon: Icons.language_outlined, label: 'Ngôn ngữ', trailing: const Text('Tiếng Việt', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13))),
         _SettingsRow(icon: Icons.lock_outline, label: 'Đổi mật khẩu', trailing: const Icon(Icons.chevron_right, color: AppTheme.textMuted, size: 18)),
       ],
@@ -131,7 +201,10 @@ class ProfileScreen extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: OutlinedButton.icon(
-        onPressed: () => Navigator.pushReplacementNamed(context, '/login'),
+        onPressed: () {
+          UserSession().logout();
+          Navigator.pushReplacementNamed(context, '/login');
+        },
         icon: const Icon(Icons.logout, size: 18),
         label: const Text('Đăng xuất'),
         style: OutlinedButton.styleFrom(

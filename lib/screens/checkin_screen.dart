@@ -3,8 +3,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import '../main.dart';
 import '../models/models.dart';
+import '../services/user_session.dart';
 import '../widgets/section_header.dart';
 
 class CheckInScreen extends StatefulWidget {
@@ -126,14 +128,26 @@ class _CheckInScreenState extends State<CheckInScreen> {
     setState(() => _isLocating = true);
 
     try {
-      // Gửi dữ liệu check-in lên Firestore
-      await FirebaseFirestore.instance.collection('checkins').add({
+      // Kiểm tra mạng
+      final connectivityResult = await Connectivity().checkConnectivity();
+      bool isOffline = connectivityResult == ConnectivityResult.none;
+
+      final docRef = FirebaseFirestore.instance.collection('checkins').doc();
+      final dataToSave = {
         'project': _selectedProject,
         'latitude': _lat!,
         'longitude': _lng!,
         'notes': _notesCtrl.text,
         'timestamp': Timestamp.fromDate(DateTime.now()),
-      });
+        'synced': !isOffline,
+        'createdBy': UserSession().uid,
+      };
+
+      if (isOffline) {
+        docRef.set(dataToSave);
+      } else {
+        await docRef.set(dataToSave);
+      }
 
       setState(() {
         _notesCtrl.clear();
@@ -143,10 +157,13 @@ class _CheckInScreenState extends State<CheckInScreen> {
         _isLocating = false;
       });
       if (mounted) {
+        final msg = isOffline 
+            ? 'Đã lưu ngoại tuyến! Sẽ tự động đồng bộ khi có mạng.'
+            : 'Check-in thành công! Đã lưu lên hệ thống.';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Check-in thành công! Đã lưu lên Firestore.'),
-            backgroundColor: AppTheme.success,
+            content: Text(msg, style: const TextStyle(color: Colors.white)),
+            backgroundColor: isOffline ? AppTheme.warning : AppTheme.success,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),

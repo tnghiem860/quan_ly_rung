@@ -4,9 +4,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:convert';
 import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import '../main.dart';
 import '../models/models.dart';
 import '../widgets/stat_card.dart';
+import '../services/user_session.dart';
 import '../widgets/activity_tile.dart';
 import '../widgets/section_header.dart';
 import 'main_shell.dart';
@@ -401,20 +403,36 @@ class HomeScreen extends StatelessWidget {
         }
       } catch (_) {}
 
-      // Lưu metadata vào Firestore
-      await FirebaseFirestore.instance.collection('quick_photos').add({
+      final connectivityResult = await Connectivity().checkConnectivity();
+      bool isOffline = connectivityResult == ConnectivityResult.none;
+
+      final docRef = FirebaseFirestore.instance.collection('quick_photos').doc();
+      final dataToSave = {
         'url': base64Data,
         'fileName': fileName,
         'location': {'lat': lat, 'lng': lng},
         'timestamp': Timestamp.fromDate(DateTime.now()),
-      });
+        'synced': !isOffline,
+        'createdBy': UserSession().uid,
+      };
+
+      if (isOffline) {
+        docRef.set(dataToSave);
+      } else {
+        await docRef.set(dataToSave);
+      }
 
       if (!context.mounted) return;
+      
+      final msg = isOffline 
+          ? 'Đã lưu ngoại tuyến! Sẽ tự động đồng bộ khi có mạng.'
+          : 'Đã tải ảnh lên hệ thống thành công!';
+      
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Ảnh đã được gửi lên Firestore!'),
-          backgroundColor: AppTheme.success,
+          content: Text(msg, style: const TextStyle(color: Colors.white)),
+          backgroundColor: isOffline ? AppTheme.warning : AppTheme.success,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),

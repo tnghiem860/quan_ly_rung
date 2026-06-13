@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 import '../main.dart';
+import '../services/user_session.dart';
 import '../models/models.dart';
 import '../widgets/activity_tile.dart';
 import 'new_logbook_screen.dart';
@@ -45,7 +47,10 @@ class _LogbookScreenState extends State<LogbookScreen> {
       );
     }
 
-    Query query = FirebaseFirestore.instance.collection('logbooks').orderBy('timestamp', descending: true);
+    Query query = FirebaseFirestore.instance.collection('logbooks')
+      .where('createdBy', isEqualTo: UserSession().uid)
+      .orderBy('timestamp', descending: true);
+      
     if (_filter != 'Tất cả') {
       query = query.where('activity', isEqualTo: _filter);
     }
