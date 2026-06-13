@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'screens/login_screen.dart';
@@ -10,6 +11,10 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  
+  // Khởi tạo dữ liệu mặc định nếu chưa có
+  await _seedDefaultData();
+
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
@@ -21,6 +26,51 @@ void main() async {
     ),
   );
   runApp(const ForestWorkerApp());
+}
+
+Future<void> _seedDefaultData() async {
+  final firestore = FirebaseFirestore.instance;
+
+  // Cập nhật User
+  final userDoc = await firestore.collection('users').doc('user_001').get();
+  if (!userDoc.exists) {
+    await firestore.collection('users').doc('user_001').set({
+      'name': 'Trần Văn B',
+      'email': 'tranvanb@forest.vn',
+      'phone': '0901234567',
+      'role': 'Forest Worker',
+      'status': 'Active',
+    });
+  }
+
+  // Cập nhật Activities
+  final activitiesSnapshot = await firestore.collection('activities').limit(1).get();
+  if (activitiesSnapshot.docs.isEmpty) {
+    final defaultActivities = [
+      'Trồng cây',
+      'Chăm sóc cây',
+      'Bón phân',
+      'Kiểm tra sinh trưởng',
+      'Tuần tra',
+      'Phòng cháy chữa cháy',
+    ];
+    for (String activity in defaultActivities) {
+      await firestore.collection('activities').add({'name': activity});
+    }
+  }
+
+  // Cập nhật Projects
+  final projectsSnapshot = await firestore.collection('projects').limit(1).get();
+  if (projectsSnapshot.docs.isEmpty) {
+    final defaultProjects = [
+      {'name': 'Dak Lak Project 01', 'province': 'Đắk Lắk', 'status': 'Active', 'areaHa': 1250.50, 'treeSpecies': 'Keo Lai'},
+      {'name': 'Lam Dong Project 02', 'province': 'Lâm Đồng', 'status': 'Active', 'areaHa': 980.75, 'treeSpecies': 'Bạch Đàn'},
+      {'name': 'Gia Lai Project 01', 'province': 'Gia Lai', 'status': 'Surveying', 'areaHa': 1520.30, 'treeSpecies': 'Thông'},
+    ];
+    for (var project in defaultProjects) {
+      await firestore.collection('projects').add(project);
+    }
+  }
 }
 
 class ForestWorkerApp extends StatelessWidget {

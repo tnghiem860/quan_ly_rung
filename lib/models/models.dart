@@ -14,6 +14,17 @@ class WorkerUser {
     this.role = 'Forest Worker',
     this.status = 'Active',
   });
+
+  factory WorkerUser.fromFirestore(Map<String, dynamic> data, String id) {
+    return WorkerUser(
+      id: id,
+      name: data['name'] ?? 'Không rõ',
+      email: data['email'] ?? '',
+      phone: data['phone'] ?? '',
+      role: data['role'] ?? 'Forest Worker',
+      status: data['status'] ?? 'Active',
+    );
+  }
 }
 
 class LogbookEntry {
@@ -102,6 +113,17 @@ class ForestProject {
     required this.areaHa,
     required this.treeSpecies,
   });
+
+  factory ForestProject.fromFirestore(Map<String, dynamic> data, String id) {
+    return ForestProject(
+      id: id,
+      name: data['name'] ?? 'Không rõ',
+      province: data['province'] ?? '',
+      status: data['status'] ?? 'Active',
+      areaHa: (data['areaHa'] ?? 0.0).toDouble(),
+      treeSpecies: data['treeSpecies'] ?? '',
+    );
+  }
 }
 
 class TreeRecord {
@@ -122,19 +144,4 @@ class TreeRecord {
   });
 }
 
-const List<String> activityTypes = [
-  'Trồng cây',
-  'Chăm sóc cây',
-  'Bón phân',
-  'Kiểm tra sinh trưởng',
-  'Tuần tra',
-  'Phòng cháy chữa cháy',
-];
 
-final List<ForestProject> sampleProjects = [
-  ForestProject(id: 'PRJ-001', name: 'Dak Lak Project 01', province: 'Đắk Lắk', status: 'Active', areaHa: 1250.50, treeSpecies: 'Keo Lai'),
-  ForestProject(id: 'PRJ-002', name: 'Lam Dong Project 02', province: 'Lâm Đồng', status: 'Active', areaHa: 980.75, treeSpecies: 'Bạch Đàn'),
-  ForestProject(id: 'PRJ-003', name: 'Gia Lai Project 01', province: 'Gia Lai', status: 'Surveying', areaHa: 1520.30, treeSpecies: 'Thông'),
-];
-
-final List<LogbookEntry> sampleLogs = [];

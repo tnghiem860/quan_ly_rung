@@ -19,9 +19,30 @@ class _CheckInScreenState extends State<CheckInScreen> {
   bool _hasLocation = false;
   double? _lat;
   double? _lng;
-  String _selectedProject = 'Dak Lak Project 01';
+  String? _selectedProject;
+  List<String> _projects = [];
+  bool _loadingData = true;
   final _notesCtrl = TextEditingController();
   final MapController _mapController = MapController();
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchData();
+  }
+
+  Future<void> _fetchData() async {
+    try {
+      final projSnap = await FirebaseFirestore.instance.collection('projects').get();
+      setState(() {
+        _projects = projSnap.docs.map((doc) => doc['name'] as String).toList();
+        if (_projects.isNotEmpty) _selectedProject = _projects.first;
+        _loadingData = false;
+      });
+    } catch (e) {
+      setState(() => _loadingData = false);
+    }
+  }
 
   @override
   void dispose() {
@@ -111,7 +132,7 @@ class _CheckInScreenState extends State<CheckInScreen> {
         'latitude': _lat!,
         'longitude': _lng!,
         'notes': _notesCtrl.text,
-        'timestamp': FieldValue.serverTimestamp(),
+        'timestamp': Timestamp.fromDate(DateTime.now()),
       });
 
       setState(() {
@@ -146,6 +167,12 @@ class _CheckInScreenState extends State<CheckInScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_loadingData) {
+      return const Scaffold(
+        backgroundColor: AppTheme.background,
+        body: Center(child: CircularProgressIndicator(color: AppTheme.accent)),
+      );
+    }
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
@@ -162,6 +189,8 @@ class _CheckInScreenState extends State<CheckInScreen> {
             _buildFlutterMap(),
             const SizedBox(height: 20),
             _buildLocationCard(),
+            const SizedBox(height: 16),
+            _buildTimeInfo(),
             const SizedBox(height: 16),
             _buildProjectSelector(),
             const SizedBox(height: 16),
@@ -321,6 +350,52 @@ class _CheckInScreenState extends State<CheckInScreen> {
     );
   }
 
+  Widget _buildTimeInfo() {
+    final now = DateTime.now();
+    final timeStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')} - ${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}';
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.cardBg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.border, width: 0.5),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppTheme.accent.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.access_time, color: AppTheme.accent, size: 22),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Thời gian thiết bị',
+                  style: TextStyle(
+                    color: AppTheme.textSecondary,
+                    fontWeight: FontWeight.w500,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  timeStr,
+                  style: const TextStyle(color: AppTheme.accent, fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildLocationCard() {
     return Container(
       padding: const EdgeInsets.all(14),
@@ -399,9 +474,9 @@ class _CheckInScreenState extends State<CheckInScreen> {
           dropdownColor: AppTheme.surface,
           style: const TextStyle(color: AppTheme.textPrimary, fontSize: 14),
           decoration: const InputDecoration(),
-          items: sampleProjects.map((p) => DropdownMenuItem(
-            value: p.name,
-            child: Text(p.name),
+          items: _projects.map((p) => DropdownMenuItem(
+            value: p,
+            child: Text(p),
           )).toList(),
           onChanged: (v) => setState(() => _selectedProject = v!),
         ),

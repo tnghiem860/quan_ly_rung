@@ -14,10 +14,37 @@ class LogbookScreen extends StatefulWidget {
 
 class _LogbookScreenState extends State<LogbookScreen> {
   String _filter = 'Tất cả';
-  final _filters = ['Tất cả', ...activityTypes];
+  List<String> _filters = ['Tất cả'];
+  int _selectedFilterIndex = 0;
+  bool _loadingData = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchData();
+  }
+
+  Future<void> _fetchData() async {
+    try {
+      final actSnap = await FirebaseFirestore.instance.collection('activities').get();
+      setState(() {
+        _filters = ['Tất cả', ...actSnap.docs.map((doc) => doc['name'] as String)];
+        _loadingData = false;
+      });
+    } catch (e) {
+      setState(() => _loadingData = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (_loadingData) {
+      return const Scaffold(
+        backgroundColor: AppTheme.background,
+        body: Center(child: CircularProgressIndicator(color: AppTheme.accent)),
+      );
+    }
+
     Query query = FirebaseFirestore.instance.collection('logbooks').orderBy('timestamp', descending: true);
     if (_filter != 'Tất cả') {
       query = query.where('activity', isEqualTo: _filter);

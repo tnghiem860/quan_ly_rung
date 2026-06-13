@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+import 'dart:convert';
 import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
 import '../main.dart';
@@ -15,8 +15,11 @@ class NewLogbookScreen extends StatefulWidget {
 }
 
 class _NewLogbookScreenState extends State<NewLogbookScreen> {
-  String _selectedActivity = activityTypes.first;
-  String _selectedProject = sampleProjects.first.name;
+  List<String> _activities = [];
+  List<String> _projects = [];
+  String? _selectedActivity;
+  String? _selectedProject;
+  bool _loadingData = true;
   final _descCtrl = TextEditingController();
   final List<XFile> _pickedPhotos = [];
   bool _saving = false;
@@ -29,6 +32,24 @@ class _NewLogbookScreenState extends State<NewLogbookScreen> {
   void initState() {
     super.initState();
     _fetchLocation();
+    _fetchData();
+  }
+
+  Future<void> _fetchData() async {
+    try {
+      final actSnap = await FirebaseFirestore.instance.collection('activities').get();
+      final projSnap = await FirebaseFirestore.instance.collection('projects').get();
+      
+      setState(() {
+        _activities = actSnap.docs.map((doc) => doc['name'] as String).toList();
+        _projects = projSnap.docs.map((doc) => doc['name'] as String).toList();
+        if (_activities.isNotEmpty) _selectedActivity = _activities.first;
+        if (_projects.isNotEmpty) _selectedProject = _projects.first;
+        _loadingData = false;
+      });
+    } catch (e) {
+      setState(() => _loadingData = false);
+    }
   }
 
   Future<void> _fetchLocation() async {
@@ -76,9 +97,9 @@ class _NewLogbookScreenState extends State<NewLogbookScreen> {
     try {
       final XFile? photo = await _picker.pickImage(
         source: ImageSource.camera,
-        maxWidth: 1280,
-        maxHeight: 1280,
-        imageQuality: 80,
+        maxWidth: 800,
+        maxHeight: 800,
+        imageQuality: 50,
       );
       if (photo != null && _pickedPhotos.length < 10) {
         setState(() => _pickedPhotos.add(photo));
@@ -102,9 +123,9 @@ class _NewLogbookScreenState extends State<NewLogbookScreen> {
   Future<void> _pickFromGallery() async {
     try {
       final List<XFile> images = await _picker.pickMultiImage(
-        maxWidth: 1280,
-        maxHeight: 1280,
-        imageQuality: 80,
+        maxWidth: 800,
+        maxHeight: 800,
+        imageQuality: 50,
       );
       if (images.isNotEmpty) {
         final remaining = 10 - _pickedPhotos.length;
@@ -124,30 +145,20 @@ class _NewLogbookScreenState extends State<NewLogbookScreen> {
     }
   }
 
-  // Upload ảnh lên Firebase Storage và trả về danh sách URL
-  Future<List<String>> _uploadPhotos() async {
-    final List<String> urls = [];
-    final storageRef = FirebaseStorage.instance.ref();
-    final timestamp = DateTime.now().millisecondsSinceEpoch;
-
+  // Mã hoá ảnh sang base64 string
+  Future<List<String>> _encodePhotosToBase64() async {
+    final List<String> base64Photos = [];
     for (int i = 0; i < _pickedPhotos.length; i++) {
-      final file = _pickedPhotos[i];
-      final fileName = 'logbook_${timestamp}_$i.jpg';
-      final imageRef = storageRef.child('logbook_photos/$fileName');
-
       try {
-        final Uint8List bytes = await file.readAsBytes();
-        await imageRef.putData(
-          bytes,
-          SettableMetadata(contentType: 'image/jpeg'),
-        );
-        final downloadUrl = await imageRef.getDownloadURL();
-        urls.add(downloadUrl);
+        final Uint8List bytes = await _pickedPhotos[i].readAsBytes();
+        final String base64String = base64Encode(bytes);
+        // Prefix để có thể dễ dàng sử dụng với html hoặc widget Image.memory nếu cần
+        base64Photos.add('data:image/jpeg;base64,$base64String');
       } catch (e) {
-        debugPrint('Lỗi upload ảnh $i: $e');
+        debugPrint('Lỗi mã hóa ảnh $i: $e');
       }
     }
-    return urls;
+    return base64Photos;
   }
 
   Future<void> _save() async {
@@ -160,10 +171,10 @@ class _NewLogbookScreenState extends State<NewLogbookScreen> {
     setState(() => _saving = true);
 
     try {
-      // Upload ảnh lên Firebase Storage
-      List<String> photoUrls = [];
+      // Mã hóa ảnh sang chuỗi base64
+      List<String> photoData = [];
       if (_pickedPhotos.isNotEmpty) {
-        photoUrls = await _uploadPhotos();
+        photoData = await _encodePhotosToBase64();
       }
 
       // Gửi dữ liệu lên Firestore
@@ -171,13 +182,13 @@ class _NewLogbookScreenState extends State<NewLogbookScreen> {
         'activity': _selectedActivity,
         'project': _selectedProject,
         'description': _descCtrl.text,
-        'photos': photoUrls,
-        'photoCount': photoUrls.length,
+        'photos': photoData,
+        'photoCount': photoData.length,
         'location': {
           'lat': _lat ?? 0,
           'lng': _lng ?? 0,
         },
-        'timestamp': FieldValue.serverTimestamp(),
+        'timestamp': Timestamp.fromDate(DateTime.now()),
         'synced': true,
       });
 
@@ -185,7 +196,7 @@ class _NewLogbookScreenState extends State<NewLogbookScreen> {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Nhật ký đã lưu lên Firestore! (${photoUrls.length} ảnh)'),
+            content: Text('Nhật ký đã lưu lên Firestore! (${photoData.length} ảnh)'),
             backgroundColor: AppTheme.success,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -277,6 +288,12 @@ class _NewLogbookScreenState extends State<NewLogbookScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_loadingData) {
+      return const Scaffold(
+        backgroundColor: AppTheme.background,
+        body: Center(child: CircularProgressIndicator(color: AppTheme.accent)),
+      );
+    }
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
@@ -303,7 +320,13 @@ class _NewLogbookScreenState extends State<NewLogbookScreen> {
             const SizedBox(height: 16),
             _buildField('Hình ảnh (${_pickedPhotos.length}/10)', _buildPhotoGrid()),
             const SizedBox(height: 16),
-            _buildLocationInfo(),
+            _buildField('Thời gian & Vị trí', Column(
+              children: [
+                _buildTimeInfo(),
+                const SizedBox(height: 8),
+                _buildLocationInfo(),
+              ],
+            )),
             const SizedBox(height: 24),
           ],
         ),
@@ -326,7 +349,7 @@ class _NewLogbookScreenState extends State<NewLogbookScreen> {
     return Wrap(
       spacing: 8,
       runSpacing: 8,
-      children: activityTypes.map((a) {
+      children: _activities.map((a) {
         final selected = a == _selectedActivity;
         return GestureDetector(
           onTap: () => setState(() => _selectedActivity = a),
@@ -360,9 +383,9 @@ class _NewLogbookScreenState extends State<NewLogbookScreen> {
       dropdownColor: AppTheme.surface,
       style: const TextStyle(color: AppTheme.textPrimary, fontSize: 14),
       decoration: const InputDecoration(),
-      items: sampleProjects.map((p) => DropdownMenuItem(
-        value: p.name,
-        child: Text(p.name),
+      items: _projects.map((p) => DropdownMenuItem(
+        value: p,
+        child: Text(p),
       )).toList(),
       onChanged: (v) => setState(() => _selectedProject = v!),
     );
@@ -480,6 +503,34 @@ class _NewLogbookScreenState extends State<NewLogbookScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildTimeInfo() {
+    final now = DateTime.now();
+    final timeStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')} - ${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}';
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppTheme.cardBg,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppTheme.border, width: 0.5),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.access_time, color: AppTheme.accent, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Thời gian trên thiết bị', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+                Text(timeStr, style: const TextStyle(color: AppTheme.textPrimary, fontSize: 14, fontWeight: FontWeight.w500)),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 

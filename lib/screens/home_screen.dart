@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+import 'dart:convert';
 import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
 import '../main.dart';
@@ -93,63 +93,82 @@ class HomeScreen extends StatelessWidget {
         background: Container(
           color: AppTheme.primary,
           padding: const EdgeInsets.fromLTRB(16, 56, 16, 0),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      'Xin chào, Trần Văn B',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            fontSize: 20,
-                          ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Thứ 6, 20/05/2024',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                  ],
-                ),
-              ),
-              Stack(
+          child: StreamBuilder<DocumentSnapshot>(
+            stream: FirebaseFirestore.instance.collection('users').doc('user_001').snapshots(),
+            builder: (context, snapshot) {
+              String name = '...';
+              String initials = 'TB';
+              if (snapshot.hasData && snapshot.data!.exists) {
+                final data = snapshot.data!.data() as Map<String, dynamic>;
+                name = data['name'] ?? 'Không rõ';
+                if (name.isNotEmpty) {
+                  final parts = name.split(' ');
+                  if (parts.length > 1) {
+                    initials = '${parts.first[0]}${parts.last[0]}'.toUpperCase();
+                  } else {
+                    initials = name.substring(0, name.length >= 2 ? 2 : 1).toUpperCase();
+                  }
+                }
+              }
+              return Row(
                 children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: AppTheme.accent,
-                      borderRadius: BorderRadius.circular(22),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'Xin chào, $name',
+                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                fontSize: 20,
+                              ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          _getFormattedDate(),
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ],
                     ),
-                    child: const Center(
-                      child: Text(
-                        'TB',
-                        style: TextStyle(
-                          color: AppTheme.background,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 15,
+                  ),
+                  Stack(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: AppTheme.accent,
+                          borderRadius: BorderRadius.circular(22),
+                        ),
+                        child: Center(
+                          child: Text(
+                            initials,
+                            style: const TextStyle(
+                              color: AppTheme.background,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 15,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-                  Positioned(
-                    right: 0,
-                    top: 0,
-                    child: Container(
-                      width: 12,
-                      height: 12,
-                      decoration: BoxDecoration(
-                        color: AppTheme.warning,
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: AppTheme.primary, width: 2),
+                      Positioned(
+                        right: 0,
+                        top: 0,
+                        child: Container(
+                          width: 12,
+                          height: 12,
+                          decoration: BoxDecoration(
+                            color: AppTheme.warning,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: AppTheme.primary, width: 2),
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
                   ),
                 ],
-              ),
-            ],
+              );
+            },
           ),
         ),
         title: Row(
@@ -173,6 +192,21 @@ class HomeScreen extends StatelessWidget {
         const SizedBox(width: 4),
       ],
     );
+  }
+
+  String _getFormattedDate() {
+    final now = DateTime.now();
+    String weekday = '';
+    switch (now.weekday) {
+      case 1: weekday = 'Thứ 2'; break;
+      case 2: weekday = 'Thứ 3'; break;
+      case 3: weekday = 'Thứ 4'; break;
+      case 4: weekday = 'Thứ 5'; break;
+      case 5: weekday = 'Thứ 6'; break;
+      case 6: weekday = 'Thứ 7'; break;
+      case 7: weekday = 'Chủ nhật'; break;
+    }
+    return '$weekday, ${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}';
   }
 
   Widget _buildOnlineStatus() {
@@ -206,19 +240,30 @@ class HomeScreen extends StatelessWidget {
   }
 
   Widget _buildStatsGrid(BuildContext context) {
-    return GridView.count(
-      crossAxisCount: 2,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisSpacing: 12,
-      mainAxisSpacing: 12,
-      childAspectRatio: 1.6,
-      children: const [
-        StatCard(label: 'Dự án của tôi', value: '3', icon: Icons.folder_outlined, color: AppTheme.accent),
-        StatCard(label: 'Nhật ký tháng này', value: '24', icon: Icons.edit_note, color: AppTheme.info),
-        StatCard(label: 'Chưa đồng bộ', value: '1', icon: Icons.cloud_off_outlined, color: AppTheme.warning),
-        StatCard(label: 'Check-in hôm nay', value: '2', icon: Icons.location_on_outlined, color: AppTheme.success),
-      ],
+    return FutureBuilder<List<int>>(
+      future: Future.wait([
+        FirebaseFirestore.instance.collection('projects').count().get().then((res) => res.count ?? 0),
+        FirebaseFirestore.instance.collection('logbooks').count().get().then((res) => res.count ?? 0),
+        FirebaseFirestore.instance.collection('logbooks').where('synced', isEqualTo: false).count().get().then((res) => res.count ?? 0),
+        FirebaseFirestore.instance.collection('checkins').count().get().then((res) => res.count ?? 0),
+      ]),
+      builder: (context, snapshot) {
+        final data = snapshot.data ?? [0, 0, 0, 0];
+        return GridView.count(
+          crossAxisCount: 2,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+          childAspectRatio: 1.6,
+          children: [
+            StatCard(label: 'Dự án', value: data[0].toString(), icon: Icons.folder_outlined, color: AppTheme.accent),
+            StatCard(label: 'Tổng nhật ký', value: data[1].toString(), icon: Icons.edit_note, color: AppTheme.info),
+            StatCard(label: 'Chưa đồng bộ', value: data[2].toString(), icon: Icons.cloud_off_outlined, color: AppTheme.warning),
+            StatCard(label: 'Số lần Check-in', value: data[3].toString(), icon: Icons.location_on_outlined, color: AppTheme.success),
+          ],
+        );
+      },
     );
   }
 
@@ -279,9 +324,9 @@ class HomeScreen extends StatelessWidget {
     try {
       photo = await picker.pickImage(
         source: ImageSource.camera,
-        maxWidth: 1280,
-        maxHeight: 1280,
-        imageQuality: 80,
+        maxWidth: 800,
+        maxHeight: 800,
+        imageQuality: 50,
       );
     } catch (_) {
       // Camera không khả dụng → fallback gallery
@@ -297,9 +342,9 @@ class HomeScreen extends StatelessWidget {
       try {
         photo = await picker.pickImage(
           source: ImageSource.gallery,
-          maxWidth: 1280,
-          maxHeight: 1280,
-          imageQuality: 80,
+          maxWidth: 800,
+          maxHeight: 800,
+          imageQuality: 50,
         );
       } catch (e) {
         if (context.mounted) {
@@ -329,13 +374,12 @@ class HomeScreen extends StatelessWidget {
         ),
       );
 
-      // Upload lên Firebase Storage
+      // Mã hoá ảnh sang base64
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final fileName = 'quick_photo_$timestamp.jpg';
-      final ref = FirebaseStorage.instance.ref().child('quick_photos/$fileName');
       final Uint8List bytes = await photo.readAsBytes();
-      await ref.putData(bytes, SettableMetadata(contentType: 'image/jpeg'));
-      final downloadUrl = await ref.getDownloadURL();
+      final String base64String = base64Encode(bytes);
+      final String base64Data = 'data:image/jpeg;base64,$base64String';
 
       // Lấy vị trí GPS thực (nếu có)
       double lat = 0;
@@ -359,10 +403,10 @@ class HomeScreen extends StatelessWidget {
 
       // Lưu metadata vào Firestore
       await FirebaseFirestore.instance.collection('quick_photos').add({
-        'url': downloadUrl,
+        'url': base64Data,
         'fileName': fileName,
         'location': {'lat': lat, 'lng': lng},
-        'timestamp': FieldValue.serverTimestamp(),
+        'timestamp': Timestamp.fromDate(DateTime.now()),
       });
 
       if (!context.mounted) return;
