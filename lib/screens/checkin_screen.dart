@@ -26,6 +26,7 @@ class _CheckInScreenState extends State<CheckInScreen> {
   bool _loadingData = true;
   final _notesCtrl = TextEditingController();
   final MapController _mapController = MapController();
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -49,7 +50,17 @@ class _CheckInScreenState extends State<CheckInScreen> {
   @override
   void dispose() {
     _notesCtrl.dispose();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  // Cuộn màn hình xuống phần lịch sử check-in
+  void _scrollToHistory(BuildContext context) {
+    _scrollController.animateTo(
+      _scrollController.position.maxScrollExtent,
+      duration: const Duration(milliseconds: 500),
+      curve: Curves.easeInOut,
+    );
   }
 
   Future<void> _getLocation() async {
@@ -195,10 +206,15 @@ class _CheckInScreenState extends State<CheckInScreen> {
       appBar: AppBar(
         title: const Text('Check-in GPS'),
         actions: [
-          IconButton(icon: const Icon(Icons.history_outlined), onPressed: () {}),
+          IconButton(
+            icon: const Icon(Icons.history_outlined),
+            tooltip: 'Lịch sử Check-in',
+            onPressed: () => _scrollToHistory(context),
+          ),
         ],
       ),
       body: SingleChildScrollView(
+        controller: _scrollController,
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -278,7 +294,8 @@ class _CheckInScreenState extends State<CheckInScreen> {
               ),
               children: [
                 TileLayer(
-                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  // Dùng trực tiếp server ảnh bản đồ của Google Maps, truyền thêm gl=VN để ép hiển thị theo góc nhìn chủ quyền Việt Nam (không cần API Key)
+                  urlTemplate: 'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=vi&gl=VN',
                   userAgentPackageName: 'com.forestworker.app',
                 ),
                 if (_hasLocation && _lat != null && _lng != null)
@@ -553,7 +570,10 @@ class _CheckInHistoryTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(record.project, style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13, fontWeight: FontWeight.w500)),
+                Text(record.project,
+                    style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13, fontWeight: FontWeight.w500),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis),
                 Text(
                   '${record.timestamp.hour.toString().padLeft(2, '0')}:${record.timestamp.minute.toString().padLeft(2, '0')} • ${record.latitude.toStringAsFixed(4)}, ${record.longitude.toStringAsFixed(4)}',
                   style: const TextStyle(color: AppTheme.textSecondary, fontSize: 11),

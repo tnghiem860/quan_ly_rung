@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
@@ -97,124 +98,161 @@ class ForestWorkerApp extends StatelessWidget {
 }
 
 class AppTheme {
-  static const Color primary = Color(0xFF1A4731);
-  static const Color primaryLight = Color(0xFF2D6A4F);
-  static const Color accent = Color(0xFF52B788);
-  static const Color accentLight = Color(0xFF74C69D);
-  static const Color surface = Color(0xFF1B2E23);
-  static const Color surfaceLight = Color(0xFF243B2D);
-  static const Color background = Color(0xFF0F1C15);
-  static const Color cardBg = Color(0xFF1E3027);
-  static const Color textPrimary = Color(0xFFE8F5E9);
-  static const Color textSecondary = Color(0xFF95B8A0);
-  static const Color textMuted = Color(0xFF5A7A65);
-  static const Color border = Color(0xFF2D4A38);
-  static const Color success = Color(0xFF52B788);
-  static const Color warning = Color(0xFFFFB703);
-  static const Color danger = Color(0xFFE63946);
-  static const Color info = Color(0xFF48CAE4);
+  // ── Bảng màu nền – tối hơn và sắc nét hơn ──────────────────────────────
+  static const Color background   = Color(0xFF080F0B); // Đen tuyền ám xanh
+  static const Color surface      = Color(0xFF101A12); // Nền layer 2
+  static const Color surfaceLight = Color(0xFF172019); // Nền input/card nhỏ
+  static const Color cardBg       = Color(0xFF142218); // Card nổi bật hơn
+  static const Color primary      = Color(0xFF112118); // AppBar / bottom bar
+  static const Color primaryLight = Color(0xFF1E3828); // Hover/pressed state
 
-  static ThemeData get darkGreenTheme => ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: background,
-        colorScheme: const ColorScheme.dark(
-          primary: accent,
-          secondary: accentLight,
-          surface: surface,
-          error: danger,
+  // ── Màu nhấn chính – xanh lá rừng sáng ─────────────────────────────────
+  static const Color accent       = Color(0xFF4ADE80); // Xanh lá tươi (như cây mới)
+  static const Color accentLight  = Color(0xFF86EFAC); // Highlight trên nền tối
+  static const Color accentDark   = Color(0xFF16A34A); // Hover/pressed accent
+
+  // ── Màu nhấn phụ – Cam hổ phách (warm accent) ───────────────────────────
+  static const Color amber        = Color(0xFFFBBF24); // Cảnh báo / nút quan trọng
+  static const Color amberLight   = Color(0xFFFDE68A); // Hover amber
+
+  // ── Màu viền và phân chia ───────────────────────────────────────────────
+  static const Color border       = Color(0xFF1F3025); // Viền card/input
+  static const Color borderBright = Color(0xFF2D4A38); // Viền active
+
+  // ── Màu văn bản – phân cấp rõ ràng ─────────────────────────────────────
+  static const Color textPrimary   = Color(0xFFFFFFFF); // Trắng tinh – tiêu đề
+  static const Color textSecondary = Color(0xFF9CA3AF); // Xám trung bình – phụ đề
+  static const Color textMuted     = Color(0xFF4B5563); // Xám nhạt – mờ
+
+  // ── Màu trạng thái ──────────────────────────────────────────────────────
+  static const Color success = Color(0xFF4ADE80); // = accent
+  static const Color warning = Color(0xFFFBBF24); // = amber
+  static const Color danger  = Color(0xFFF87171); // Đỏ nhẹ (tránh quá chói)
+  static const Color info    = Color(0xFF38BDF8); // Xanh dương nhạt
+
+  static ThemeData get darkGreenTheme {
+    final base = GoogleFonts.interTextTheme();
+    return ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.dark,
+      scaffoldBackgroundColor: background,
+      colorScheme: const ColorScheme.dark(
+        primary: accent,
+        secondary: accentLight,
+        surface: surface,
+        error: danger,
+      ),
+
+      // ── TextTheme dùng Inter font ────────────────────────────────────────
+      textTheme: base.copyWith(
+        headlineLarge:  base.headlineLarge?.copyWith(color: textPrimary,   fontWeight: FontWeight.w700),
+        headlineMedium: base.headlineMedium?.copyWith(color: textPrimary,  fontWeight: FontWeight.w600),
+        headlineSmall:  base.headlineSmall?.copyWith(color: textPrimary,   fontWeight: FontWeight.w600),
+        titleLarge:     base.titleLarge?.copyWith(color: textPrimary,      fontWeight: FontWeight.w600),
+        titleMedium:    base.titleMedium?.copyWith(color: textPrimary,     fontWeight: FontWeight.w500),
+        titleSmall:     base.titleSmall?.copyWith(color: textSecondary,    fontWeight: FontWeight.w500),
+        bodyLarge:      base.bodyLarge?.copyWith(color: textPrimary),
+        bodyMedium:     base.bodyMedium?.copyWith(color: textSecondary),
+        bodySmall:      base.bodySmall?.copyWith(color: textMuted),
+        labelLarge:     base.labelLarge?.copyWith(color: textPrimary,      fontWeight: FontWeight.w600),
+        labelMedium:    base.labelMedium?.copyWith(color: textSecondary),
+        labelSmall:     base.labelSmall?.copyWith(color: textMuted,        fontSize: 11),
+      ),
+
+      // ── AppBar ───────────────────────────────────────────────────────────
+      appBarTheme: AppBarTheme(
+        backgroundColor: primary,
+        foregroundColor: textPrimary,
+        elevation: 0,
+        centerTitle: false,
+        titleTextStyle: GoogleFonts.inter(
+          color: textPrimary,
+          fontSize: 17,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.2,
         ),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: primary,
-          foregroundColor: textPrimary,
-          elevation: 0,
-          centerTitle: false,
-          titleTextStyle: TextStyle(
-            color: textPrimary,
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.3,
-          ),
-          iconTheme: IconThemeData(color: textPrimary),
+        iconTheme: const IconThemeData(color: textSecondary, size: 22),
+        actionsIconTheme: const IconThemeData(color: textSecondary, size: 22),
+      ),
+
+      // ── Bottom Nav ───────────────────────────────────────────────────────
+      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+        backgroundColor: primary,
+        selectedItemColor: accent,
+        unselectedItemColor: textMuted,
+        type: BottomNavigationBarType.fixed,
+        elevation: 0,
+      ),
+
+      // ── Card ─────────────────────────────────────────────────────────────
+      cardTheme: CardThemeData(
+        color: cardBg,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: const BorderSide(color: border, width: 0.5),
         ),
-        bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-          backgroundColor: primary,
-          selectedItemColor: accentLight,
-          unselectedItemColor: textMuted,
-          type: BottomNavigationBarType.fixed,
-          elevation: 0,
+      ),
+
+      // ── Input ────────────────────────────────────────────────────────────
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: surfaceLight,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: border),
         ),
-        cardTheme: CardThemeData(
-          color: cardBg,
-          elevation: 0,
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: border, width: 0.5),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: accent, width: 1.5),
+        ),
+        labelStyle: const TextStyle(color: textSecondary),
+        hintStyle: const TextStyle(color: textMuted),
+        prefixIconColor: textSecondary,
+      ),
+
+      // ── ElevatedButton ───────────────────────────────────────────────────
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: accent,
+          foregroundColor: background,
+          minimumSize: const Size.fromHeight(52),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
-            side: const BorderSide(color: border, width: 0.5),
           ),
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: surfaceLight,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: border),
+          textStyle: GoogleFonts.inter(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.3,
           ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: border, width: 0.5),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: accent, width: 1.5),
-          ),
-          labelStyle: const TextStyle(color: textSecondary),
-          hintStyle: const TextStyle(color: textMuted),
-          prefixIconColor: textSecondary,
+          elevation: 0,
         ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: accent,
-            foregroundColor: background,
-            minimumSize: const Size.fromHeight(52),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            textStyle: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.5,
-            ),
-            elevation: 0,
-          ),
+      ),
+
+      // ── TextButton ───────────────────────────────────────────────────────
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: accentLight,
         ),
-        textButtonTheme: TextButtonThemeData(
-          style: TextButton.styleFrom(
-            foregroundColor: accentLight,
-          ),
-        ),
-        textTheme: const TextTheme(
-          headlineLarge: TextStyle(color: textPrimary, fontWeight: FontWeight.w700),
-          headlineMedium: TextStyle(color: textPrimary, fontWeight: FontWeight.w600),
-          headlineSmall: TextStyle(color: textPrimary, fontWeight: FontWeight.w600),
-          titleLarge: TextStyle(color: textPrimary, fontWeight: FontWeight.w600),
-          titleMedium: TextStyle(color: textPrimary, fontWeight: FontWeight.w500),
-          titleSmall: TextStyle(color: textSecondary, fontWeight: FontWeight.w500),
-          bodyLarge: TextStyle(color: textPrimary),
-          bodyMedium: TextStyle(color: textSecondary),
-          bodySmall: TextStyle(color: textMuted),
-          labelLarge: TextStyle(color: textPrimary, fontWeight: FontWeight.w600),
-          labelMedium: TextStyle(color: textSecondary),
-          labelSmall: TextStyle(color: textMuted, fontSize: 11),
-        ),
-        dividerTheme: const DividerThemeData(
-          color: border,
-          thickness: 0.5,
-        ),
-        chipTheme: ChipThemeData(
-          backgroundColor: surfaceLight,
-          labelStyle: const TextStyle(color: textPrimary, fontSize: 12),
-          side: const BorderSide(color: border, width: 0.5),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        ),
-      );
+      ),
+
+      // ── Divider ──────────────────────────────────────────────────────────
+      dividerTheme: const DividerThemeData(
+        color: border,
+        thickness: 0.5,
+      ),
+
+      // ── Chip ─────────────────────────────────────────────────────────────
+      chipTheme: ChipThemeData(
+        backgroundColor: surfaceLight,
+        labelStyle: const TextStyle(color: textPrimary, fontSize: 12),
+        side: const BorderSide(color: border, width: 0.5),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
+  }
 }

@@ -118,29 +118,43 @@ class _LoginScreenState extends State<LoginScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.background,
-      body: SafeArea(
-        child: FadeTransition(
-          opacity: _fadeAnim,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 28),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 56),
-                _buildLogo(),
-                const SizedBox(height: 48),
-                _buildHeader(),
-                const SizedBox(height: 36),
-                _buildForm(),
-                if (_errorMessage != null) ...[
-                  const SizedBox(height: 16),
-                  _buildErrorMessage(),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF050A07), // gần đen
+              Color(0xFF0F1C15), // xanh rừng đậm
+              Color(0xFF0A1A0F),
+            ],
+            stops: [0.0, 0.5, 1.0],
+          ),
+        ),
+        child: SafeArea(
+          child: FadeTransition(
+            opacity: _fadeAnim,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 28),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 56),
+                  _buildLogo(),
+                  const SizedBox(height: 48),
+                  _buildHeader(),
+                  const SizedBox(height: 36),
+                  _buildForm(),
+                  if (_errorMessage != null) ...[
+                    const SizedBox(height: 16),
+                    _buildErrorMessage(),
+                  ],
+                  const SizedBox(height: 32),
+                  _buildLoginButton(),
+                  const SizedBox(height: 32),
+                  _buildVersionInfo(),
                 ],
-                const SizedBox(height: 32),
-                _buildLoginButton(),
-                const SizedBox(height: 32),
-                _buildVersionInfo(),
-              ],
+              ),
             ),
           ),
         ),
@@ -152,15 +166,27 @@ class _LoginScreenState extends State<LoginScreen>
     return Row(
       children: [
         Container(
-          width: 48,
-          height: 48,
+          width: 52,
+          height: 52,
           decoration: BoxDecoration(
-            color: AppTheme.accent,
-            borderRadius: BorderRadius.circular(12),
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [AppTheme.accent, AppTheme.accentDark],
+            ),
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: [
+              BoxShadow(
+                color: AppTheme.accent.withValues(alpha: 0.4),
+                blurRadius: 16,
+                spreadRadius: 2,
+                offset: const Offset(0, 4),
+              )
+            ],
           ),
-          child: const Icon(Icons.forest, color: AppTheme.background, size: 28),
+          child: const Icon(Icons.forest, color: Colors.white, size: 28),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 14),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -168,7 +194,8 @@ class _LoginScreenState extends State<LoginScreen>
               'Forest Carbon',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     color: AppTheme.textPrimary,
-                    fontSize: 16,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
                   ),
             ),
             Text(
@@ -245,9 +272,9 @@ class _LoginScreenState extends State<LoginScreen>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: AppTheme.danger.withOpacity(0.1),
+        color: AppTheme.danger.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppTheme.danger.withOpacity(0.3), width: 0.5),
+        border: Border.all(color: AppTheme.danger.withValues(alpha: 0.3), width: 0.5),
       ),
       child: Row(
         children: [

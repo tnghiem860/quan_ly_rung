@@ -50,7 +50,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       appBar: AppBar(
         title: const Text('Hồ sơ cá nhân'),
         actions: [
-          IconButton(icon: const Icon(Icons.edit_outlined), onPressed: () {}),
+          IconButton(
+            icon: const Icon(Icons.edit_outlined),
+            tooltip: 'Chỉnh sửa hồ sơ',
+            onPressed: () => _showEditProfileDialog(context),
+          ),
         ],
       ),
       body: _loading
@@ -83,7 +87,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildProfileHeader(BuildContext context, Map<String, dynamic> userData) {
-    final String name = userData['name'] ?? 'Không rõ';
+    final String name = userData['fullName'] ?? 'Không rõ';
     final String role = userData['role'] ?? 'Forest Worker';
     
     String initials = 'U';
@@ -132,7 +136,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
-              color: AppTheme.accent.withOpacity(0.2),
+              color: AppTheme.accent.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(role, style: const TextStyle(color: AppTheme.accent, fontSize: 12, fontWeight: FontWeight.w500)),
@@ -194,6 +198,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _SettingsRow(icon: Icons.language_outlined, label: 'Ngôn ngữ', trailing: const Text('Tiếng Việt', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13))),
         _SettingsRow(icon: Icons.lock_outline, label: 'Đổi mật khẩu', trailing: const Icon(Icons.chevron_right, color: AppTheme.textMuted, size: 18)),
       ],
+    );
+  }
+
+  void _showEditProfileDialog(BuildContext context) {
+    // Trần màn hình nấy lên dialog chỉnh sửa hồ sơ
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.surface,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => _EditProfileSheet(uid: UserSession().uid),
     );
   }
 
@@ -283,8 +300,16 @@ class _InfoRow extends StatelessWidget {
           Icon(icon, color: AppTheme.accent, size: 18),
           const SizedBox(width: 12),
           Text(label, style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
-          const Spacer(),
-          Text(value, style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13, fontWeight: FontWeight.w500)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13, fontWeight: FontWeight.w500),
+              textAlign: TextAlign.end,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
         ],
       ),
     );
@@ -309,7 +334,7 @@ class _ProjectRow extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
-              color: (isActive ? AppTheme.success : AppTheme.warning).withOpacity(0.15),
+              color: (isActive ? AppTheme.success : AppTheme.warning).withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(6),
             ),
             child: Text(status, style: TextStyle(color: isActive ? AppTheme.success : AppTheme.warning, fontSize: 11)),
@@ -336,6 +361,152 @@ class _SettingsRow extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(child: Text(label, style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13))),
           trailing,
+        ],
+      ),
+    );
+  }
+}
+
+// ── Bottom Sheet chỉnh sửa hồ sơ ─────────────────────────────────────────────
+class _EditProfileSheet extends StatefulWidget {
+  final String uid;
+  const _EditProfileSheet({required this.uid});
+
+  @override
+  State<_EditProfileSheet> createState() => _EditProfileSheetState();
+}
+
+class _EditProfileSheetState extends State<_EditProfileSheet> {
+  final _nameCtrl  = TextEditingController();
+  final _emailCtrl = TextEditingController();
+  final _phoneCtrl = TextEditingController();
+  bool _saving     = false;
+  bool _loading    = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCurrentData();
+  }
+
+  Future<void> _loadCurrentData() async {
+    try {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(widget.uid).get();
+      if (doc.exists && mounted) {
+        final data = doc.data() as Map<String, dynamic>;
+        _nameCtrl.text  = data['fullName']  ?? '';
+        _emailCtrl.text = data['email'] ?? '';
+        _phoneCtrl.text = data['phone'] ?? '';
+      }
+    } catch (_) {}
+    if (mounted) setState(() => _loading = false);
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _emailCtrl.dispose();
+    _phoneCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (_nameCtrl.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vui lòng nhập họ tên')),
+      );
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(widget.uid).update({
+        'fullName':  _nameCtrl.text.trim(),
+        'email': _emailCtrl.text.trim(),
+        'phone': _phoneCtrl.text.trim(),
+      });
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Hồ sơ đã được cập nhật!', style: TextStyle(color: Colors.white)),
+            backgroundColor: AppTheme.success,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi lưu: $e'), backgroundColor: AppTheme.danger),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 16, 20, 20 + bottomInset),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              width: 40, height: 4,
+              decoration: BoxDecoration(color: AppTheme.textMuted, borderRadius: BorderRadius.circular(2)),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              const Text('Chỉnh sửa hồ sơ', style: TextStyle(color: AppTheme.textPrimary, fontSize: 17, fontWeight: FontWeight.w700)),
+              const Spacer(),
+              TextButton(
+                onPressed: _saving ? null : _save,
+                child: _saving
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.accent))
+                    : const Text('Lưu', style: TextStyle(color: AppTheme.accent, fontWeight: FontWeight.w700, fontSize: 15)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (_loading)
+            const Center(child: CircularProgressIndicator(color: AppTheme.accent))
+          else ...[
+            TextFormField(
+              controller: _nameCtrl,
+              style: const TextStyle(color: AppTheme.textPrimary),
+              decoration: const InputDecoration(
+                labelText: 'Họ và tên',
+                prefixIcon: Icon(Icons.person_outline),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _emailCtrl,
+              keyboardType: TextInputType.emailAddress,
+              style: const TextStyle(color: AppTheme.textPrimary),
+              decoration: const InputDecoration(
+                labelText: 'Email',
+                prefixIcon: Icon(Icons.email_outlined),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _phoneCtrl,
+              keyboardType: TextInputType.phone,
+              style: const TextStyle(color: AppTheme.textPrimary),
+              decoration: const InputDecoration(
+                labelText: 'Số điện thoại',
+                prefixIcon: Icon(Icons.phone_outlined),
+              ),
+            ),
+          ],
         ],
       ),
     );

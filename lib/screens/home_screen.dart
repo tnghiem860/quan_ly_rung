@@ -89,21 +89,21 @@ class HomeScreen extends StatelessWidget {
   Widget _buildAppBar(BuildContext context) {
     return SliverAppBar(
       backgroundColor: AppTheme.primary,
-      expandedHeight: 120,
+      expandedHeight: 140,
       floating: false,
       pinned: true,
       flexibleSpace: FlexibleSpaceBar(
         background: Container(
           color: AppTheme.primary,
-          padding: const EdgeInsets.fromLTRB(16, 56, 16, 0),
+          padding: const EdgeInsets.fromLTRB(16, 48, 16, 0),
           child: StreamBuilder<DocumentSnapshot>(
-            stream: FirebaseFirestore.instance.collection('users').doc('user_001').snapshots(),
+            stream: FirebaseFirestore.instance.collection('users').doc(UserSession().uid).snapshots(),
             builder: (context, snapshot) {
               String name = '...';
-              String initials = 'TB';
+              String initials = 'U';
               if (snapshot.hasData && snapshot.data!.exists) {
                 final data = snapshot.data!.data() as Map<String, dynamic>;
-                name = data['name'] ?? 'Không rõ';
+                name = data['fullName'] ?? 'Không rõ';
                 if (name.isNotEmpty) {
                   final parts = name.split(' ');
                   if (parts.length > 1) {
@@ -114,60 +114,68 @@ class HomeScreen extends StatelessWidget {
                 }
               }
               return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisAlignment: MainAxisAlignment.start,
                       children: [
                         Text(
                           'Xin chào, $name',
                           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                                 fontSize: 20,
                               ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 2),
                         Text(
                           _getFormattedDate(),
                           style: Theme.of(context).textTheme.bodyMedium,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),
                   ),
-                  Stack(
-                    children: [
-                      Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: AppTheme.accent,
-                          borderRadius: BorderRadius.circular(22),
-                        ),
-                        child: Center(
-                          child: Text(
-                            initials,
-                            style: const TextStyle(
-                              color: AppTheme.background,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 15,
+                  GestureDetector(
+                    onTap: () => MainShellState.of(context)?.switchTab(4),
+                    child: Stack(
+                      children: [
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: AppTheme.accent,
+                            borderRadius: BorderRadius.circular(22),
+                          ),
+                          child: Center(
+                            child: Text(
+                              initials,
+                              style: const TextStyle(
+                                color: AppTheme.background,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 15,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      Positioned(
-                        right: 0,
-                        top: 0,
-                        child: Container(
-                          width: 12,
-                          height: 12,
-                          decoration: BoxDecoration(
-                            color: AppTheme.warning,
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: AppTheme.primary, width: 2),
+                        Positioned(
+                          right: 0,
+                          top: 0,
+                          child: Container(
+                            width: 12,
+                            height: 12,
+                            decoration: BoxDecoration(
+                              color: AppTheme.warning,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: AppTheme.primary, width: 2),
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ],
               );
@@ -190,14 +198,73 @@ class HomeScreen extends StatelessWidget {
       actions: [
         IconButton(
           icon: const Icon(Icons.notifications_outlined),
-          onPressed: () {},
+          tooltip: 'Thông báo',
+          onPressed: () => _showNotificationsDialog(context),
         ),
         const SizedBox(width: 4),
       ],
     );
   }
 
+  // Hiển thị dialog Thông báo
+  static void _showNotificationsDialog(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40, height: 4,
+                  decoration: BoxDecoration(
+                    color: AppTheme.textMuted,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text('Thông báo', style: TextStyle(color: AppTheme.textPrimary, fontSize: 17, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 16),
+              _NotificationItem(
+                icon: Icons.cloud_done_outlined,
+                color: AppTheme.success,
+                title: 'Đồng bộ hoàn tất',
+                subtitle: 'Tất cả nhật ký đã được đồng bộ lên cloud',
+                time: 'Vừa xong',
+              ),
+              const SizedBox(height: 10),
+              _NotificationItem(
+                icon: Icons.warning_amber_rounded,
+                color: AppTheme.warning,
+                title: 'Nhắc nhở tuần tra',
+                subtitle: 'Khu vực Đắk Lắk chưa được kiểm tra hôm nay',
+                time: '2 giờ trước',
+              ),
+              const SizedBox(height: 10),
+              _NotificationItem(
+                icon: Icons.info_outline,
+                color: AppTheme.info,
+                title: 'Cập nhật hệ thống',
+                subtitle: 'Phiên bản mới v1.1.0 đã sẵn sàng',
+                time: 'Hôm qua',
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   String _getFormattedDate() {
+
     final now = DateTime.now();
     String weekday = '';
     switch (now.weekday) {
@@ -471,9 +538,9 @@ class _QuickActionButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.3), width: 0.5),
+          border: Border.all(color: color.withValues(alpha: 0.3), width: 0.5),
         ),
         child: Column(
           children: [
@@ -483,9 +550,66 @@ class _QuickActionButton extends StatelessWidget {
               label,
               style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w500),
               textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ── Widget hiển thị mỗi thông báo ────────────────────────────────────────────
+class _NotificationItem extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String subtitle;
+  final String time;
+
+  const _NotificationItem({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.subtitle,
+    required this.time,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppTheme.cardBg,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.2), width: 0.5),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: color, size: 18),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 2),
+                Text(subtitle, style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12), maxLines: 2, overflow: TextOverflow.ellipsis),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(time, style: const TextStyle(color: AppTheme.textMuted, fontSize: 10)),
+        ],
       ),
     );
   }
