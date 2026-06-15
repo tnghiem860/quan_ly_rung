@@ -46,8 +46,8 @@ class MainShellState extends State<MainShell> {
   Widget _buildBottomNav() {
     return Container(
       decoration: const BoxDecoration(
-        color: AppTheme.primary,
-        border: Border(top: BorderSide(color: AppTheme.border, width: 0.5)),
+        color: AppTheme.surface,
+        border: Border(top: BorderSide(color: AppTheme.border, width: 1.0)),
       ),
       child: SafeArea(
         child: Padding(
@@ -105,10 +105,10 @@ class _NavItem extends StatelessWidget {
               height: 2.5,
               margin: const EdgeInsets.only(bottom: 6),
               decoration: BoxDecoration(
-                color: AppTheme.accent,
+                color: AppTheme.primary,
                 borderRadius: BorderRadius.circular(2),
                 boxShadow: isActive ? [
-                  BoxShadow(color: AppTheme.accent.withValues(alpha: 0.5), blurRadius: 6, spreadRadius: 1)
+                  BoxShadow(color: AppTheme.primary.withValues(alpha: 0.3), blurRadius: 4, spreadRadius: 1)
                 ] : [],
               ),
             ),
@@ -117,7 +117,7 @@ class _NavItem extends StatelessWidget {
               child: Icon(
                 isActive ? activeIcon : icon,
                 key: ValueKey(isActive),
-                color: isActive ? AppTheme.accent : AppTheme.textMuted,
+                color: isActive ? AppTheme.primary : AppTheme.textMuted,
                 size: 22,
               ),
             ),
@@ -126,7 +126,7 @@ class _NavItem extends StatelessWidget {
               label,
               style: TextStyle(
                 fontSize: 10,
-                color: isActive ? AppTheme.accent : AppTheme.textMuted,
+                color: isActive ? AppTheme.primary : AppTheme.textMuted,
                 fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
               ),
               maxLines: 1,

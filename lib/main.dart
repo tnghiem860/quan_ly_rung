@@ -87,7 +87,7 @@ class ForestWorkerApp extends StatelessWidget {
     return MaterialApp(
       title: 'Forest Worker',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.darkGreenTheme,
+      theme: AppTheme.lightNatureTheme,
       initialRoute: '/login',
       routes: {
         '/login': (_) => const LoginScreen(),
@@ -98,47 +98,47 @@ class ForestWorkerApp extends StatelessWidget {
 }
 
 class AppTheme {
-  // ── Bảng màu nền – tối hơn và sắc nét hơn ──────────────────────────────
-  static const Color background   = Color(0xFF080F0B); // Đen tuyền ám xanh
-  static const Color surface      = Color(0xFF101A12); // Nền layer 2
-  static const Color surfaceLight = Color(0xFF172019); // Nền input/card nhỏ
-  static const Color cardBg       = Color(0xFF142218); // Card nổi bật hơn
-  static const Color primary      = Color(0xFF112118); // AppBar / bottom bar
-  static const Color primaryLight = Color(0xFF1E3828); // Hover/pressed state
+  // ── Bảng màu nền – Light Nature ─────────────────────────────────────────
+  static const Color background   = Color(0xFFF8FAFC); // Nền xám nhạt/trắng
+  static const Color surface      = Color(0xFFFFFFFF); // Nền layer 2 (trắng)
+  static const Color surfaceLight = Color(0xFFF1F5F9); // Nền input/card nhỏ
+  static const Color cardBg       = Color(0xFFFFFFFF); // Card trắng
+  static const Color primary      = Color(0xFF065F46); // Xanh rừng rậm (AppBar)
+  static const Color primaryLight = Color(0xFF047857); // Xanh lục bảo
 
-  // ── Màu nhấn chính – xanh lá rừng sáng ─────────────────────────────────
-  static const Color accent       = Color(0xFF4ADE80); // Xanh lá tươi (như cây mới)
-  static const Color accentLight  = Color(0xFF86EFAC); // Highlight trên nền tối
-  static const Color accentDark   = Color(0xFF16A34A); // Hover/pressed accent
+  // ── Màu nhấn chính – Xanh lục bảo ──────────────────────────────────────
+  static const Color accent       = Color(0xFF059669); // Xanh lá đậm hơn
+  static const Color accentLight  = Color(0xFF10B981); // Highlight trên nền sáng
+  static const Color accentDark   = Color(0xFF064E3B); // Hover/pressed accent
 
-  // ── Màu nhấn phụ – Cam hổ phách (warm accent) ───────────────────────────
-  static const Color amber        = Color(0xFFFBBF24); // Cảnh báo / nút quan trọng
-  static const Color amberLight   = Color(0xFFFDE68A); // Hover amber
+  // ── Màu nhấn phụ – Cam ──────────────────────────────────────────────────
+  static const Color amber        = Color(0xFFF59E0B); // Cảnh báo
+  static const Color amberLight   = Color(0xFFFCD34D); // Hover amber
 
   // ── Màu viền và phân chia ───────────────────────────────────────────────
-  static const Color border       = Color(0xFF1F3025); // Viền card/input
-  static const Color borderBright = Color(0xFF2D4A38); // Viền active
+  static const Color border       = Color(0xFFE2E8F0); // Viền card/input xám nhạt
+  static const Color borderBright = Color(0xFFCBD5E1); // Viền active xám vừa
 
   // ── Màu văn bản – phân cấp rõ ràng ─────────────────────────────────────
-  static const Color textPrimary   = Color(0xFFFFFFFF); // Trắng tinh – tiêu đề
-  static const Color textSecondary = Color(0xFF9CA3AF); // Xám trung bình – phụ đề
-  static const Color textMuted     = Color(0xFF4B5563); // Xám nhạt – mờ
+  static const Color textPrimary   = Color(0xFF0F172A); // Đen đậm – tiêu đề
+  static const Color textSecondary = Color(0xFF475569); // Xám trung bình – phụ đề
+  static const Color textMuted     = Color(0xFF94A3B8); // Xám nhạt – mờ
 
   // ── Màu trạng thái ──────────────────────────────────────────────────────
-  static const Color success = Color(0xFF4ADE80); // = accent
-  static const Color warning = Color(0xFFFBBF24); // = amber
-  static const Color danger  = Color(0xFFF87171); // Đỏ nhẹ (tránh quá chói)
-  static const Color info    = Color(0xFF38BDF8); // Xanh dương nhạt
+  static const Color success = Color(0xFF059669); // = accent
+  static const Color warning = Color(0xFFF59E0B); // = amber
+  static const Color danger  = Color(0xFFEF4444); // Đỏ
+  static const Color info    = Color(0xFF0EA5E9); // Xanh dương
 
-  static ThemeData get darkGreenTheme {
+  static ThemeData get lightNatureTheme {
     final base = GoogleFonts.interTextTheme();
     return ThemeData(
       useMaterial3: true,
-      brightness: Brightness.dark,
+      brightness: Brightness.light,
       scaffoldBackgroundColor: background,
-      colorScheme: const ColorScheme.dark(
-        primary: accent,
-        secondary: accentLight,
+      colorScheme: const ColorScheme.light(
+        primary: primary,
+        secondary: accent,
         surface: surface,
         error: danger,
       ),
@@ -162,53 +162,54 @@ class AppTheme {
       // ── AppBar ───────────────────────────────────────────────────────────
       appBarTheme: AppBarTheme(
         backgroundColor: primary,
-        foregroundColor: textPrimary,
+        foregroundColor: Colors.white,
         elevation: 0,
         centerTitle: false,
         titleTextStyle: GoogleFonts.inter(
-          color: textPrimary,
+          color: Colors.white,
           fontSize: 17,
           fontWeight: FontWeight.w600,
           letterSpacing: 0.2,
         ),
-        iconTheme: const IconThemeData(color: textSecondary, size: 22),
-        actionsIconTheme: const IconThemeData(color: textSecondary, size: 22),
+        iconTheme: const IconThemeData(color: Colors.white, size: 22),
+        actionsIconTheme: const IconThemeData(color: Colors.white, size: 22),
       ),
 
       // ── Bottom Nav ───────────────────────────────────────────────────────
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-        backgroundColor: primary,
-        selectedItemColor: accent,
+        backgroundColor: surface,
+        selectedItemColor: primary,
         unselectedItemColor: textMuted,
         type: BottomNavigationBarType.fixed,
-        elevation: 0,
+        elevation: 8,
       ),
 
       // ── Card ─────────────────────────────────────────────────────────────
       cardTheme: CardThemeData(
         color: cardBg,
-        elevation: 0,
+        elevation: 2,
+        shadowColor: Colors.black.withOpacity(0.05),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(14),
-          side: const BorderSide(color: border, width: 0.5),
+          side: const BorderSide(color: border, width: 1.0),
         ),
       ),
 
       // ── Input ────────────────────────────────────────────────────────────
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: surfaceLight,
+        fillColor: surface,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
           borderSide: const BorderSide(color: border),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: border, width: 0.5),
+          borderSide: const BorderSide(color: border, width: 1.0),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: accent, width: 1.5),
+          borderSide: const BorderSide(color: primary, width: 1.5),
         ),
         labelStyle: const TextStyle(color: textSecondary),
         hintStyle: const TextStyle(color: textMuted),
@@ -218,8 +219,8 @@ class AppTheme {
       // ── ElevatedButton ───────────────────────────────────────────────────
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: accent,
-          foregroundColor: background,
+          backgroundColor: primary,
+          foregroundColor: Colors.white,
           minimumSize: const Size.fromHeight(52),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
@@ -236,21 +237,21 @@ class AppTheme {
       // ── TextButton ───────────────────────────────────────────────────────
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: accentLight,
+          foregroundColor: primary,
         ),
       ),
 
       // ── Divider ──────────────────────────────────────────────────────────
       dividerTheme: const DividerThemeData(
         color: border,
-        thickness: 0.5,
+        thickness: 1.0,
       ),
 
       // ── Chip ─────────────────────────────────────────────────────────────
       chipTheme: ChipThemeData(
         backgroundColor: surfaceLight,
         labelStyle: const TextStyle(color: textPrimary, fontSize: 12),
-        side: const BorderSide(color: border, width: 0.5),
+        side: const BorderSide(color: borderBright, width: 1.0),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );

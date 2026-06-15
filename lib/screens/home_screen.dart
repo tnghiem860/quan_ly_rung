@@ -125,6 +125,7 @@ class HomeScreen extends StatelessWidget {
                           'Xin chào, $name',
                           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                                 fontSize: 20,
+                                color: Colors.white,
                               ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -132,7 +133,9 @@ class HomeScreen extends StatelessWidget {
                         const SizedBox(height: 2),
                         Text(
                           _getFormattedDate(),
-                          style: Theme.of(context).textTheme.bodyMedium,
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                color: Colors.white70,
+                              ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -184,11 +187,13 @@ class HomeScreen extends StatelessWidget {
         ),
         title: Row(
           children: [
-            const Icon(Icons.forest, color: AppTheme.accent, size: 20),
+            const Icon(Icons.forest, color: AppTheme.accentLight, size: 20),
             const SizedBox(width: 8),
             Text(
               'Forest Worker',
-              style: Theme.of(context).textTheme.titleMedium,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: Colors.white,
+                  ),
             ),
           ],
         ),
@@ -197,7 +202,7 @@ class HomeScreen extends StatelessWidget {
       ),
       actions: [
         IconButton(
-          icon: const Icon(Icons.notifications_outlined),
+          icon: const Icon(Icons.notifications_outlined, color: Colors.white),
           tooltip: 'Thông báo',
           onPressed: () => _showNotificationsDialog(context),
         ),
@@ -325,12 +330,36 @@ class HomeScreen extends StatelessWidget {
           physics: const NeverScrollableScrollPhysics(),
           crossAxisSpacing: 12,
           mainAxisSpacing: 12,
-          childAspectRatio: 1.6,
+          childAspectRatio: 1.85,
           children: [
-            StatCard(label: 'Dự án', value: data[0].toString(), icon: Icons.folder_outlined, color: AppTheme.accent),
-            StatCard(label: 'Tổng nhật ký', value: data[1].toString(), icon: Icons.edit_note, color: AppTheme.info),
-            StatCard(label: 'Chưa đồng bộ', value: data[2].toString(), icon: Icons.cloud_off_outlined, color: AppTheme.warning),
-            StatCard(label: 'Số lần Check-in', value: data[3].toString(), icon: Icons.location_on_outlined, color: AppTheme.success),
+            StatCard(
+              label: 'Dự án', 
+              value: data[0].toString(), 
+              icon: Icons.folder_outlined, 
+              color: AppTheme.accent,
+              onTap: () => MainShellState.of(context)?.switchTab(3), // Điều tra
+            ),
+            StatCard(
+              label: 'Tổng nhật ký', 
+              value: data[1].toString(), 
+              icon: Icons.edit_note, 
+              color: AppTheme.info,
+              onTap: () => MainShellState.of(context)?.switchTab(2), // Nhật ký
+            ),
+            StatCard(
+              label: 'Chưa đồng bộ', 
+              value: data[2].toString(), 
+              icon: Icons.cloud_off_outlined, 
+              color: AppTheme.warning,
+              onTap: () => MainShellState.of(context)?.switchTab(2), // Nhật ký
+            ),
+            StatCard(
+              label: 'Số lần Check-in', 
+              value: data[3].toString(), 
+              icon: Icons.location_on_outlined, 
+              color: AppTheme.success,
+              onTap: () => MainShellState.of(context)?.switchTab(1), // Check-in
+            ),
           ],
         );
       },

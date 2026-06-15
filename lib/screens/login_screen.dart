@@ -124,11 +124,11 @@ class _LoginScreenState extends State<LoginScreen>
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Color(0xFF050A07), // gần đen
-              Color(0xFF0F1C15), // xanh rừng đậm
-              Color(0xFF0A1A0F),
+              Color(0xFFDCFCE7), // xanh lục bảo nhạt
+              Color(0xFFF8FAFC), // AppTheme.background
+              Color(0xFFF8FAFC),
             ],
-            stops: [0.0, 0.5, 1.0],
+            stops: [0.0, 0.4, 1.0],
           ),
         ),
         child: SafeArea(
@@ -298,9 +298,9 @@ class _LoginScreenState extends State<LoginScreen>
           ? const SizedBox(
               height: 22,
               width: 22,
-              child: CircularProgressIndicator(
+              child: const CircularProgressIndicator(
                 strokeWidth: 2.5,
-                color: AppTheme.background,
+                color: Colors.white,
               ),
             )
           : const Text('Đăng nhập'),
