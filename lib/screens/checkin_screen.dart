@@ -36,9 +36,9 @@ class _CheckInScreenState extends State<CheckInScreen> {
 
   Future<void> _fetchData() async {
     try {
-      final projSnap = await FirebaseFirestore.instance.collection('projects').where('ownerId', isEqualTo: UserSession().ownerId).get();
+      final projSnap = await FirebaseFirestore.instance.collection('forest_projects').where('ownerId', isEqualTo: UserSession().ownerId).get();
       setState(() {
-        _projects = projSnap.docs.map((doc) => doc['name'] as String).toList();
+        _projects = projSnap.docs.map((doc) => ForestProject.fromFirestore(doc.data(), doc.id).name).toList();
         if (_projects.isNotEmpty) _selectedProject = _projects.first;
         _loadingData = false;
       });
@@ -552,44 +552,129 @@ class _CheckInHistoryTile extends StatelessWidget {
   final CheckInRecord record;
   const _CheckInHistoryTile({required this.record});
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppTheme.cardBg,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppTheme.border, width: 0.5),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.location_on, color: AppTheme.accent, size: 20),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(record.project,
-                    style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13, fontWeight: FontWeight.w500),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis),
-                Text(
-                  '${record.timestamp.hour.toString().padLeft(2, '0')}:${record.timestamp.minute.toString().padLeft(2, '0')} • ${record.latitude.toStringAsFixed(4)}, ${record.longitude.toStringAsFixed(4)}',
-                  style: const TextStyle(color: AppTheme.textSecondary, fontSize: 11),
-                ),
-              ],
-            ),
+  Future<void> _confirmDelete(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Xóa check-in?', style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w600)),
+        content: const Text('Bản ghi check-in này sẽ bị xóa vĩnh viễn.', style: TextStyle(color: AppTheme.textSecondary)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Hủy', style: TextStyle(color: AppTheme.textSecondary)),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: AppTheme.success.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: const Text('Đã lưu', style: TextStyle(color: AppTheme.success, fontSize: 11)),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.danger),
+            child: const Text('Xóa'),
           ),
         ],
+      ),
+    );
+    if (confirmed == true) {
+      try {
+        await FirebaseFirestore.instance.collection('checkins').doc(record.id).delete();
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Đã xóa check-in'),
+              backgroundColor: AppTheme.danger,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+          );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Lỗi xóa: $e'), backgroundColor: AppTheme.danger),
+          );
+        }
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dismissible(
+      key: Key(record.id),
+      direction: DismissDirection.endToStart,
+      confirmDismiss: (_) async {
+        await _confirmDelete(context);
+        return false;
+      },
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        margin: const EdgeInsets.only(bottom: 8),
+        decoration: BoxDecoration(
+          color: AppTheme.danger.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppTheme.danger.withValues(alpha: 0.3), width: 0.5),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.delete_outline, color: AppTheme.danger, size: 20),
+            SizedBox(width: 6),
+            Text('Xóa', style: TextStyle(color: AppTheme.danger, fontWeight: FontWeight.w600, fontSize: 13)),
+          ],
+        ),
+      ),
+      child: GestureDetector(
+        onLongPress: () => _confirmDelete(context),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppTheme.cardBg,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: AppTheme.border, width: 0.5),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.location_on, color: AppTheme.accent, size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(record.project,
+                        style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13, fontWeight: FontWeight.w500),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis),
+                    Text(
+                      '${record.timestamp.hour.toString().padLeft(2, '0')}:${record.timestamp.minute.toString().padLeft(2, '0')} • ${record.latitude.toStringAsFixed(4)}, ${record.longitude.toStringAsFixed(4)}',
+                      style: const TextStyle(color: AppTheme.textSecondary, fontSize: 11),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppTheme.success.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Text('Đã lưu', style: TextStyle(color: AppTheme.success, fontSize: 11)),
+              ),
+              const SizedBox(width: 6),
+              GestureDetector(
+                onTap: () => _confirmDelete(context),
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: AppTheme.danger.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Icon(Icons.delete_outline, color: AppTheme.danger, size: 16),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

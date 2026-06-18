@@ -18,7 +18,7 @@ class WorkerUser {
   factory WorkerUser.fromFirestore(Map<String, dynamic> data, String id) {
     return WorkerUser(
       id: id,
-      name: data['name'] ?? 'Không rõ',
+      name: data['fullName'] ?? data['name'] ?? 'Không rõ',
       email: data['email'] ?? '',
       phone: data['phone'] ?? '',
       role: data['role'] ?? 'Forest Worker',
@@ -55,14 +55,18 @@ class LogbookEntry {
   factory LogbookEntry.fromFirestore(Map<String, dynamic> data, String id) {
     return LogbookEntry(
       id: id,
-      date: data['timestamp'] != null ? (data['timestamp'] as dynamic).toDate() : DateTime.now(),
-      activityType: data['activity'] ?? 'Không rõ',
+      date: data['date'] != null ? (data['date'] as dynamic).toDate() : (data['timestamp'] != null ? (data['timestamp'] as dynamic).toDate() : DateTime.now()),
+      activityType: data['activityType'] ?? data['activity'] ?? 'Không rõ',
       description: data['description'] ?? '',
-      latitude: data['location']?['lat']?.toDouble() ?? 0.0,
-      longitude: data['location']?['lng']?.toDouble() ?? 0.0,
-      location: '${data['location']?['lat']?.toStringAsFixed(4)}, ${data['location']?['lng']?.toStringAsFixed(4)}',
+      latitude: (data['latitude'] as num?)?.toDouble() ?? data['location']?['lat']?.toDouble() ?? 0.0,
+      longitude: (data['longitude'] as num?)?.toDouble() ?? data['location']?['lng']?.toDouble() ?? 0.0,
+      location: data['location'] is String ? data['location'] : '${data['location']?['lat']?.toStringAsFixed(4)}, ${data['location']?['lng']?.toStringAsFixed(4)}',
       project: data['project'] ?? 'Không rõ',
-      photos: List<String>.from(data['photos'] ?? []),
+      photos: (data['photos'] as List<dynamic>?)?.map((e) {
+        if (e is String) return e;
+        if (e is Map<String, dynamic> && e['url'] != null) return e['url'] as String;
+        return '';
+      }).where((s) => s.isNotEmpty).toList() ?? [],
       synced: data['synced'] ?? true,
     );
   }
@@ -117,7 +121,7 @@ class ForestProject {
   factory ForestProject.fromFirestore(Map<String, dynamic> data, String id) {
     return ForestProject(
       id: id,
-      name: data['name'] ?? 'Không rõ',
+      name: data['projectName'] ?? data['name'] ?? 'Không rõ',
       province: data['province'] ?? '',
       status: data['status'] ?? 'Active',
       areaHa: (data['areaHa'] ?? 0.0).toDouble(),
@@ -154,14 +158,13 @@ class TreeRecord {
       id: id,
       plotCode: data['plotCode'] ?? 'Không rõ',
       species: data['species'] ?? 'Không rõ',
-      dbhCm: (data['dbhCm'] ?? 0.0).toDouble(),
-      heightM: (data['heightM'] ?? 0.0).toDouble(),
+      dbhCm: (data['dbh'] ?? data['dbhCm'] ?? 0.0).toDouble(),
+      heightM: (data['height'] ?? data['heightM'] ?? 0.0).toDouble(),
       quantity: data['quantity'] ?? 0,
       project: data['project'] ?? 'Không rõ',
       createdBy: data['createdBy'] ?? '',
-      timestamp: data['timestamp'] != null ? (data['timestamp'] as dynamic).toDate() : DateTime.now(),
+      timestamp: data['createdAt'] != null ? (data['createdAt'] as dynamic).toDate() : (data['timestamp'] != null ? (data['timestamp'] as dynamic).toDate() : DateTime.now()),
     );
   }
 }
-
 

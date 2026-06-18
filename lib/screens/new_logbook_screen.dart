@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import '../main.dart';
 import '../models/models.dart';
 import '../services/user_session.dart';
@@ -40,11 +41,11 @@ class _NewLogbookScreenState extends State<NewLogbookScreen> {
   Future<void> _fetchData() async {
     try {
       final actSnap = await FirebaseFirestore.instance.collection('activities').get();
-      final projSnap = await FirebaseFirestore.instance.collection('projects').where('ownerId', isEqualTo: UserSession().ownerId).get();
+      final projSnap = await FirebaseFirestore.instance.collection('forest_projects').where('ownerId', isEqualTo: UserSession().ownerId).get();
       
       setState(() {
         _activities = actSnap.docs.map((doc) => doc['name'] as String).toList();
-        _projects = projSnap.docs.map((doc) => doc['name'] as String).toList();
+        _projects = projSnap.docs.map((doc) => ForestProject.fromFirestore(doc.data(), doc.id).name).toList();
         if (_activities.isNotEmpty) _selectedActivity = _activities.first;
         if (_projects.isNotEmpty) _selectedProject = _projects.first;
         _loadingData = false;
@@ -147,20 +148,30 @@ class _NewLogbookScreenState extends State<NewLogbookScreen> {
     }
   }
 
-  // Mã hoá ảnh sang base64 string
-  Future<List<String>> _encodePhotosToBase64() async {
-    final List<String> base64Photos = [];
+  // Upload ảnh lên Firebase Storage
+  Future<List<Map<String, dynamic>>> _uploadPhotosToStorage() async {
+    final List<Map<String, dynamic>> uploadedPhotos = [];
+    final storageRef = FirebaseStorage.instance.ref();
     for (int i = 0; i < _pickedPhotos.length; i++) {
       try {
         final Uint8List bytes = await _pickedPhotos[i].readAsBytes();
-        final String base64String = base64Encode(bytes);
-        // Prefix để có thể dễ dàng sử dụng với html hoặc widget Image.memory nếu cần
-        base64Photos.add('data:image/jpeg;base64,$base64String');
+        final String fileName = '${DateTime.now().millisecondsSinceEpoch}_$i.jpg';
+        final String storagePath = 'logbook_photos/$fileName';
+        final imageRef = storageRef.child(storagePath);
+        
+        await imageRef.putData(bytes);
+        final downloadUrl = await imageRef.getDownloadURL();
+        
+        uploadedPhotos.add({
+          'url': downloadUrl,
+          'name': fileName,
+          'storagePath': storagePath,
+        });
       } catch (e) {
-        debugPrint('Lỗi mã hóa ảnh $i: $e');
+        debugPrint('Lỗi upload ảnh $i: $e');
       }
     }
-    return base64Photos;
+    return uploadedPhotos;
   }
 
   Future<void> _save() async {
@@ -177,27 +188,26 @@ class _NewLogbookScreenState extends State<NewLogbookScreen> {
       final connectivityResult = await Connectivity().checkConnectivity();
       bool isOffline = connectivityResult == ConnectivityResult.none;
 
-      // Mã hóa ảnh sang chuỗi base64
-      List<String> photoData = [];
-      if (_pickedPhotos.isNotEmpty) {
-        photoData = await _encodePhotosToBase64();
+      // Upload ảnh lên Storage
+      List<Map<String, dynamic>> photoData = [];
+      if (_pickedPhotos.isNotEmpty && !isOffline) {
+        photoData = await _uploadPhotosToStorage();
       }
 
       // Chuẩn bị dữ liệu
-      final docRef = FirebaseFirestore.instance.collection('logbooks').doc();
+      final docRef = FirebaseFirestore.instance.collection('logbook_activities').doc();
       final dataToSave = {
-        'activity': _selectedActivity,
+        'activityType': _selectedActivity,
         'project': _selectedProject,
         'description': _descCtrl.text,
         'photos': photoData,
         'photoCount': photoData.length,
-        'location': {
-          'lat': _lat ?? 0,
-          'lng': _lng ?? 0,
-        },
-        'timestamp': Timestamp.fromDate(DateTime.now()),
+        'latitude': _lat ?? 0.0,
+        'longitude': _lng ?? 0.0,
+        'location': '${_lat?.toStringAsFixed(4) ?? 0.0}, ${_lng?.toStringAsFixed(4) ?? 0.0}',
+        'date': Timestamp.fromDate(DateTime.now()),
         'synced': !isOffline,
-        'createdBy': UserSession().uid,
+        'user': UserSession().uid,
       };
 
       // Ghi dữ liệu

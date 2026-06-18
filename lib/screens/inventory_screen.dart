@@ -56,7 +56,7 @@ class _InventoryScreenState extends State<InventoryScreen> with SingleTickerProv
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
-            .collection('tree_records')
+            .collection('inventory_trees')
             .where('createdBy', isEqualTo: UserSession().uid)
             .snapshots(),
         builder: (context, snapshot) {
@@ -126,8 +126,55 @@ class _InventoryScreenState extends State<InventoryScreen> with SingleTickerProv
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
       itemCount: trees.length,
       separatorBuilder: (_, __) => const SizedBox(height: 10),
-      itemBuilder: (_, i) => _TreeDataCard(record: trees[i]),
+      itemBuilder: (_, i) => _TreeDataCard(
+        record: trees[i],
+        onDelete: () => _confirmDeleteTree(context, trees[i].id),
+      ),
     );
+  }
+
+  Future<void> _confirmDeleteTree(BuildContext context, String docId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Xóa dữ liệu cây?', style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w600)),
+        content: const Text('Bản ghi cây này sẽ bị xóa vĩnh viễn và không thể khôi phục.', style: TextStyle(color: AppTheme.textSecondary)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Hủy', style: TextStyle(color: AppTheme.textSecondary)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.danger),
+            child: const Text('Xóa'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      try {
+        await FirebaseFirestore.instance.collection('inventory_trees').doc(docId).delete();
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Đã xóa dữ liệu cây'),
+              backgroundColor: AppTheme.danger,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+          );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Lỗi xóa: $e'), backgroundColor: AppTheme.danger),
+          );
+        }
+      }
+    }
   }
 
   void _showPlotDetail(BuildContext context, String plotCode, List<TreeRecord> trees) {
@@ -200,10 +247,10 @@ class _InventoryScreenState extends State<InventoryScreen> with SingleTickerProv
                 const SizedBox(height: 16),
                 
                 FutureBuilder<QuerySnapshot>(
-                  future: FirebaseFirestore.instance.collection('projects').where('ownerId', isEqualTo: UserSession().ownerId).get(),
+                  future: FirebaseFirestore.instance.collection('forest_projects').where('ownerId', isEqualTo: UserSession().ownerId).get(),
                   builder: (context, snapshot) {
                     if (!snapshot.hasData) return const SizedBox(height: 48, child: Center(child: CircularProgressIndicator(color: AppTheme.accent)));
-                    final projects = snapshot.data!.docs.map((d) => d['name'] as String).toList();
+                    final projects = snapshot.data!.docs.map((d) => ForestProject.fromFirestore(d.data() as Map<String, dynamic>, d.id).name).toList();
                     if (projects.isNotEmpty && selectedProject == null) {
                       selectedProject = projects.first;
                     }
@@ -238,15 +285,42 @@ class _InventoryScreenState extends State<InventoryScreen> with SingleTickerProv
                     }
                     
                     try {
-                      await FirebaseFirestore.instance.collection('tree_records').add({
+                      final plotCode = plotCodeCtrl.text.trim();
+                      final db = FirebaseFirestore.instance;
+                      
+                      String plotId = '';
+                      final plotSnap = await db.collection('inventory_plots')
+                        .where('code', isEqualTo: plotCode)
+                        .where('project', isEqualTo: selectedProject)
+                        .limit(1)
+                        .get();
+                        
+                      if (plotSnap.docs.isEmpty) {
+                         final plotRef = await db.collection('inventory_plots').add({
+                           'code': plotCode,
+                           'project': selectedProject,
+                           'area': 0.0,
+                           'latitude': 0.0,
+                           'longitude': 0.0,
+                           'elevation': 0.0,
+                           'status': 'Draft',
+                           'createdAt': FieldValue.serverTimestamp(),
+                         });
+                         plotId = plotRef.id;
+                      } else {
+                         plotId = plotSnap.docs.first.id;
+                      }
+
+                      await db.collection('inventory_trees').add({
+                        'plotId': plotId,
+                        'plotCode': plotCode,
                         'project': selectedProject,
-                        'plotCode': plotCodeCtrl.text.trim(),
                         'species': speciesCtrl.text.trim(),
-                        'dbhCm': double.tryParse(dbhCtrl.text) ?? 0.0,
-                        'heightM': double.tryParse(heightCtrl.text) ?? 0.0,
+                        'dbh': double.tryParse(dbhCtrl.text) ?? 0.0,
+                        'height': double.tryParse(heightCtrl.text) ?? 0.0,
                         'quantity': int.tryParse(qtyCtrl.text) ?? 1,
                         'createdBy': UserSession().uid,
-                        'timestamp': FieldValue.serverTimestamp(),
+                        'createdAt': FieldValue.serverTimestamp(),
                       });
                       
                       if (context.mounted) {
@@ -333,45 +407,92 @@ class _PlotCard extends StatelessWidget {
 
 class _TreeDataCard extends StatelessWidget {
   final TreeRecord record;
-  const _TreeDataCard({required this.record});
+  final VoidCallback? onDelete;
+  const _TreeDataCard({required this.record, this.onDelete});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppTheme.cardBg,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.border, width: 0.5),
+    final card = GestureDetector(
+      onLongPress: onDelete,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppTheme.cardBg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppTheme.border, width: 0.5),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.eco, color: AppTheme.accent, size: 16),
+                const SizedBox(width: 6),
+                Text(record.species, style: const TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w600, fontSize: 14)),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(color: AppTheme.accent.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(6)),
+                  child: Text(record.plotCode, style: const TextStyle(color: AppTheme.accent, fontSize: 11)),
+                ),
+                if (onDelete != null) ...[
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: onDelete,
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: AppTheme.danger.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Icon(Icons.delete_outline, color: AppTheme.danger, size: 16),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                _DataChip(label: 'DBH', value: '${record.dbhCm} cm'),
+                const SizedBox(width: 8),
+                _DataChip(label: 'Cao', value: '${record.heightM} m'),
+                const SizedBox(width: 8),
+                _DataChip(label: 'Số lượng', value: '${record.quantity} cây'),
+              ],
+            ),
+          ],
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.eco, color: AppTheme.accent, size: 16),
-              const SizedBox(width: 6),
-              Text(record.species, style: const TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w600, fontSize: 14)),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(color: AppTheme.accent.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(6)),
-                child: Text(record.plotCode, style: const TextStyle(color: AppTheme.accent, fontSize: 11)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              _DataChip(label: 'DBH', value: '${record.dbhCm} cm'),
-              const SizedBox(width: 8),
-              _DataChip(label: 'Cao', value: '${record.heightM} m'),
-              const SizedBox(width: 8),
-              _DataChip(label: 'Số lượng', value: '${record.quantity} cây'),
-            ],
-          ),
-        ],
+    );
+
+    if (onDelete == null) return card;
+
+    return Dismissible(
+      key: Key(record.id),
+      direction: DismissDirection.endToStart,
+      confirmDismiss: (_) async {
+        onDelete!();
+        return false;
+      },
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        decoration: BoxDecoration(
+          color: AppTheme.danger.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppTheme.danger.withValues(alpha: 0.3), width: 0.5),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.delete_outline, color: AppTheme.danger, size: 22),
+            SizedBox(width: 6),
+            Text('Xóa', style: TextStyle(color: AppTheme.danger, fontWeight: FontWeight.w600, fontSize: 13)),
+          ],
+        ),
       ),
+      child: card,
     );
   }
 }

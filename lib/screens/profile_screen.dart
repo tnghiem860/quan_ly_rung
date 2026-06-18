@@ -25,9 +25,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _fetchData() async {
     try {
-      final logbooks = await FirebaseFirestore.instance.collection('logbooks').where('createdBy', isEqualTo: UserSession().uid).count().get();
+      final logbooks = await FirebaseFirestore.instance.collection('logbook_activities').where('user', isEqualTo: UserSession().uid).count().get();
       final checkins = await FirebaseFirestore.instance.collection('checkins').where('createdBy', isEqualTo: UserSession().uid).count().get();
-      final projectsSnap = await FirebaseFirestore.instance.collection('projects').where('ownerId', isEqualTo: UserSession().ownerId).get();
+      final projectsSnap = await FirebaseFirestore.instance.collection('forest_projects').where('ownerId', isEqualTo: UserSession().ownerId).get();
 
       if (mounted) {
         setState(() {
@@ -184,7 +184,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return _Section(
       title: 'Dự án được phân công',
       children: _projects.map((p) => _ProjectRow(
-        name: p['name'] ?? 'Không rõ',
+        name: p['projectName'] ?? p['name'] ?? 'Không rõ',
         status: p['status'] ?? 'Không rõ',
       )).toList(),
     );

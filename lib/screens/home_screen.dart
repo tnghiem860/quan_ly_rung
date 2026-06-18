@@ -11,6 +11,7 @@ import '../widgets/stat_card.dart';
 import '../services/user_session.dart';
 import '../widgets/activity_tile.dart';
 import '../widgets/section_header.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'main_shell.dart';
 import 'new_logbook_screen.dart';
 
@@ -39,9 +40,9 @@ class HomeScreen extends StatelessWidget {
                 const SizedBox(height: 12),
                 StreamBuilder<QuerySnapshot>(
                   stream: FirebaseFirestore.instance
-                      .collection('logbooks')
-                      .where('createdBy', isEqualTo: UserSession().uid)
-                      .orderBy('timestamp', descending: true)
+                      .collection('logbook_activities')
+                      .where('user', isEqualTo: UserSession().uid)
+                      .orderBy('date', descending: true)
                       .limit(5)
                       .snapshots(),
                   builder: (context, snapshot) {
@@ -317,9 +318,9 @@ class HomeScreen extends StatelessWidget {
   Widget _buildStatsGrid(BuildContext context) {
     return FutureBuilder<List<int>>(
       future: Future.wait([
-        FirebaseFirestore.instance.collection('projects').where('ownerId', isEqualTo: UserSession().ownerId).count().get().then((res) => res.count ?? 0),
-        FirebaseFirestore.instance.collection('logbooks').where('createdBy', isEqualTo: UserSession().uid).count().get().then((res) => res.count ?? 0),
-        FirebaseFirestore.instance.collection('logbooks').where('createdBy', isEqualTo: UserSession().uid).where('synced', isEqualTo: false).count().get().then((res) => res.count ?? 0),
+        FirebaseFirestore.instance.collection('forest_projects').where('ownerId', isEqualTo: UserSession().ownerId).count().get().then((res) => res.count ?? 0),
+        FirebaseFirestore.instance.collection('logbook_activities').where('user', isEqualTo: UserSession().uid).count().get().then((res) => res.count ?? 0),
+        FirebaseFirestore.instance.collection('logbook_activities').where('user', isEqualTo: UserSession().uid).where('synced', isEqualTo: false).count().get().then((res) => res.count ?? 0),
         FirebaseFirestore.instance.collection('checkins').where('createdBy', isEqualTo: UserSession().uid).count().get().then((res) => res.count ?? 0),
       ]),
       builder: (context, snapshot) {
@@ -473,12 +474,16 @@ class HomeScreen extends StatelessWidget {
         ),
       );
 
-      // Mã hoá ảnh sang base64
+      // Upload ảnh lên Storage
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final fileName = 'quick_photo_$timestamp.jpg';
       final Uint8List bytes = await photo.readAsBytes();
-      final String base64String = base64Encode(bytes);
-      final String base64Data = 'data:image/jpeg;base64,$base64String';
+      
+      final storageRef = FirebaseStorage.instance.ref();
+      final String storagePath = 'logbook_photos/$fileName';
+      final imageRef = storageRef.child(storagePath);
+      await imageRef.putData(bytes);
+      final downloadUrl = await imageRef.getDownloadURL();
 
       // Lấy vị trí GPS thực (nếu có)
       double lat = 0;
@@ -505,7 +510,8 @@ class HomeScreen extends StatelessWidget {
 
       final docRef = FirebaseFirestore.instance.collection('quick_photos').doc();
       final dataToSave = {
-        'url': base64Data,
+        'url': downloadUrl,
+        'storagePath': storagePath,
         'fileName': fileName,
         'location': {'lat': lat, 'lng': lng},
         'timestamp': Timestamp.fromDate(DateTime.now()),

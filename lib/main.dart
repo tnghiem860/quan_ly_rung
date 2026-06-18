@@ -41,7 +41,7 @@ Future<void> _seedDefaultData() async {
   final userDoc = await firestore.collection('users').doc('user_001').get();
   if (!userDoc.exists) {
     await firestore.collection('users').doc('user_001').set({
-      'name': 'Trần Văn B',
+      'fullName': 'Trần Văn B',
       'email': 'tranvanb@forest.vn',
       'phone': '0901234567',
       'role': 'Forest Worker',
@@ -66,15 +66,15 @@ Future<void> _seedDefaultData() async {
   }
 
   // Cập nhật Projects
-  final projectsSnapshot = await firestore.collection('projects').limit(1).get();
+  final projectsSnapshot = await firestore.collection('forest_projects').limit(1).get();
   if (projectsSnapshot.docs.isEmpty) {
     final defaultProjects = [
-      {'name': 'Dak Lak Project 01', 'province': 'Đắk Lắk', 'status': 'Active', 'areaHa': 1250.50, 'treeSpecies': 'Keo Lai'},
-      {'name': 'Lam Dong Project 02', 'province': 'Lâm Đồng', 'status': 'Active', 'areaHa': 980.75, 'treeSpecies': 'Bạch Đàn'},
-      {'name': 'Gia Lai Project 01', 'province': 'Gia Lai', 'status': 'Surveying', 'areaHa': 1520.30, 'treeSpecies': 'Thông'},
+      {'projectName': 'Dak Lak Project 01', 'province': 'Đắk Lắk', 'status': 'Active', 'areaHa': 1250.50, 'treeSpecies': 'Keo Lai'},
+      {'projectName': 'Lam Dong Project 02', 'province': 'Lâm Đồng', 'status': 'Active', 'areaHa': 980.75, 'treeSpecies': 'Bạch Đàn'},
+      {'projectName': 'Gia Lai Project 01', 'province': 'Gia Lai', 'status': 'Surveying', 'areaHa': 1520.30, 'treeSpecies': 'Thông'},
     ];
     for (var project in defaultProjects) {
-      await firestore.collection('projects').add(project);
+      await firestore.collection('forest_projects').add(project);
     }
   }
 }

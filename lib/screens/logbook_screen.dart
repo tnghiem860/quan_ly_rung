@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:intl/intl.dart';
 import '../main.dart';
 import '../services/user_session.dart';
 import '../models/models.dart';
@@ -17,7 +16,6 @@ class LogbookScreen extends StatefulWidget {
 class _LogbookScreenState extends State<LogbookScreen> {
   String _filter = 'Tất cả';
   List<String> _filters = ['Tất cả'];
-  int _selectedFilterIndex = 0;
   bool _loadingData = true;
 
   @override
@@ -47,12 +45,12 @@ class _LogbookScreenState extends State<LogbookScreen> {
       );
     }
 
-    Query query = FirebaseFirestore.instance.collection('logbooks')
-      .where('createdBy', isEqualTo: UserSession().uid)
-      .orderBy('timestamp', descending: true);
+    Query query = FirebaseFirestore.instance.collection('logbook_activities')
+      .where('user', isEqualTo: UserSession().uid)
+      .orderBy('date', descending: true);
       
     if (_filter != 'Tất cả') {
-      query = query.where('activity', isEqualTo: _filter);
+      query = query.where('activityType', isEqualTo: _filter);
     }
 
     return Scaffold(
@@ -106,7 +104,10 @@ class _LogbookScreenState extends State<LogbookScreen> {
                   padding: const EdgeInsets.all(16),
                   itemCount: logs.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 10),
-                  itemBuilder: (_, i) => ActivityTile(entry: logs[i], expanded: true),
+                  itemBuilder: (_, i) => _DismissibleLogTile(
+                    entry: logs[i],
+                    onDelete: () => _confirmDeleteLog(context, logs[i].id),
+                  ),
                 );
               },
             ),
@@ -130,7 +131,7 @@ class _LogbookScreenState extends State<LogbookScreen> {
               label: Text(f),
               selected: selected,
               onSelected: (_) => setState(() => _filter = f),
-              selectedColor: AppTheme.accent.withOpacity(0.2),
+              selectedColor: AppTheme.accent.withValues(alpha: 0.2),
               labelStyle: TextStyle(
                 color: selected ? AppTheme.accent : AppTheme.textSecondary,
                 fontSize: 12,
@@ -194,6 +195,91 @@ class _LogbookScreenState extends State<LogbookScreen> {
               )),
           const SizedBox(height: 12),
         ],
+      ),
+    );
+  }
+
+  Future<void> _confirmDeleteLog(BuildContext context, String docId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Xóa nhật ký?', style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w600)),
+        content: const Text('Nhật ký này sẽ bị xóa vĩnh viễn và không thể khôi phục.', style: TextStyle(color: AppTheme.textSecondary)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Hủy', style: TextStyle(color: AppTheme.textSecondary)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.danger),
+            child: const Text('Xóa'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      try {
+        await FirebaseFirestore.instance.collection('logbook_activities').doc(docId).delete();
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Đã xóa nhật ký'),
+              backgroundColor: AppTheme.danger,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+          );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Lỗi xóa: $e'), backgroundColor: AppTheme.danger),
+          );
+        }
+      }
+    }
+  }
+}
+
+// ── Widget tile nhật ký với swipe-to-delete ───────────────────────────────────
+class _DismissibleLogTile extends StatelessWidget {
+  final LogbookEntry entry;
+  final VoidCallback onDelete;
+
+  const _DismissibleLogTile({required this.entry, required this.onDelete});
+
+  @override
+  Widget build(BuildContext context) {
+    return Dismissible(
+      key: Key(entry.id),
+      direction: DismissDirection.endToStart,
+      confirmDismiss: (_) async {
+        onDelete();
+        return false; // Để Firestore xử lý, không dismiss ngay
+      },
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        decoration: BoxDecoration(
+          color: AppTheme.danger.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppTheme.danger.withValues(alpha: 0.3), width: 0.5),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.delete_outline, color: AppTheme.danger, size: 22),
+            SizedBox(width: 6),
+            Text('Xóa', style: TextStyle(color: AppTheme.danger, fontWeight: FontWeight.w600, fontSize: 13)),
+          ],
+        ),
+      ),
+      child: GestureDetector(
+        onLongPress: onDelete,
+        child: ActivityTile(entry: entry, expanded: true),
       ),
     );
   }
