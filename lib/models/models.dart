@@ -127,21 +127,41 @@ class ForestProject {
 }
 
 class TreeRecord {
+  final String id;
   final String plotCode;
   final String species;
   final double dbhCm;
   final double heightM;
   final int quantity;
   final String project;
+  final String createdBy;
+  final DateTime timestamp;
 
   TreeRecord({
+    required this.id,
     required this.plotCode,
     required this.species,
     required this.dbhCm,
     required this.heightM,
     required this.quantity,
     required this.project,
-  });
+    this.createdBy = '',
+    DateTime? timestamp,
+  }) : timestamp = timestamp ?? DateTime.now();
+
+  factory TreeRecord.fromFirestore(Map<String, dynamic> data, String id) {
+    return TreeRecord(
+      id: id,
+      plotCode: data['plotCode'] ?? 'Không rõ',
+      species: data['species'] ?? 'Không rõ',
+      dbhCm: (data['dbhCm'] ?? 0.0).toDouble(),
+      heightM: (data['heightM'] ?? 0.0).toDouble(),
+      quantity: data['quantity'] ?? 0,
+      project: data['project'] ?? 'Không rõ',
+      createdBy: data['createdBy'] ?? '',
+      timestamp: data['timestamp'] != null ? (data['timestamp'] as dynamic).toDate() : DateTime.now(),
+    );
+  }
 }
 
 
