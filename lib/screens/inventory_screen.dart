@@ -11,10 +11,9 @@ class InventoryScreen extends StatefulWidget {
   State<InventoryScreen> createState() => _InventoryScreenState();
 }
 
-class _InventoryScreenState extends State<InventoryScreen> with SingleTickerProviderStateMixin {
+class _InventoryScreenState extends State<InventoryScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabCtrl;
-
-
 
   @override
   void initState() {
@@ -40,7 +39,8 @@ class _InventoryScreenState extends State<InventoryScreen> with SingleTickerProv
           unselectedLabelColor: AppTheme.textMuted,
           indicatorColor: AppTheme.accent,
           indicatorSize: TabBarIndicatorSize.tab,
-          labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+          labelStyle:
+              const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
           tabs: const [
             Tab(text: 'Ô mẫu (Plots)'),
             Tab(text: 'Dữ liệu cây'),
@@ -53,103 +53,43 @@ class _InventoryScreenState extends State<InventoryScreen> with SingleTickerProv
         backgroundColor: AppTheme.accent,
         foregroundColor: AppTheme.background,
         icon: const Icon(Icons.add),
-        label: const Text('Thêm dữ liệu', style: TextStyle(fontWeight: FontWeight.w600)),
+        label: const Text('Thêm dữ liệu cây',
+            style: TextStyle(fontWeight: FontWeight.w600)),
       ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('inventory_trees')
-            .where('createdBy', isEqualTo: UserSession().uid)
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator(color: AppTheme.accent));
-          }
-          if (snapshot.hasError) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Text('Lỗi tải dữ liệu: ${snapshot.error}', textAlign: TextAlign.center, style: const TextStyle(color: AppTheme.danger)),
-              ),
-            );
-          }
-
-          List<TreeRecord> trees = [];
-          if (snapshot.hasData) {
-            trees = snapshot.data!.docs.map((doc) {
-              return TreeRecord.fromFirestore(doc.data() as Map<String, dynamic>, doc.id);
-            }).toList();
-            
-            // Sắp xếp local để tránh lỗi thiếu Composite Index của Firestore
-            trees.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-          }
-
-          if (trees.isEmpty) {
-            return const Center(
-              child: Text('Chưa có dữ liệu cây nào.', style: TextStyle(color: AppTheme.textSecondary)),
-            );
-          }
-
-          return TabBarView(
-            controller: _tabCtrl,
-            children: [
-              _buildPlotsTab(trees),
-              _buildTreeDataTab(trees),
-            ],
-          );
-        },
+      body: TabBarView(
+        controller: _tabCtrl,
+        children: [
+          _PlotsTab(onAddTree: () => _showAddTreeSheet(context)),
+          _TreeDataTab(onDelete: _confirmDeleteTree),
+        ],
       ),
     );
   }
 
-  Widget _buildPlotsTab(List<TreeRecord> trees) {
-    final plots = trees.map((t) => t.plotCode).toSet().toList();
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
-      itemCount: plots.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 10),
-      itemBuilder: (_, i) {
-        final plot = plots[i];
-        final plotTrees = trees.where((t) => t.plotCode == plot).toList();
-        final totalQty = plotTrees.fold(0, (s, t) => s + t.quantity);
-        return _PlotCard(
-          plotCode: plot,
-          project: plotTrees.first.project,
-          speciesCount: plotTrees.length,
-          totalTrees: totalQty,
-          onTap: () => _showPlotDetail(context, plot, plotTrees),
-        );
-      },
-    );
-  }
-
-  Widget _buildTreeDataTab(List<TreeRecord> trees) {
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
-      itemCount: trees.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 10),
-      itemBuilder: (_, i) => _TreeDataCard(
-        record: trees[i],
-        onDelete: () => _confirmDeleteTree(context, trees[i].id),
-      ),
-    );
-  }
-
-  Future<void> _confirmDeleteTree(BuildContext context, String docId) async {
+  Future<void> _confirmDeleteTree(
+      BuildContext context, String docId) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppTheme.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Xóa dữ liệu cây?', style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w600)),
-        content: const Text('Bản ghi cây này sẽ bị xóa vĩnh viễn và không thể khôi phục.', style: TextStyle(color: AppTheme.textSecondary)),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Xóa dữ liệu cây?',
+            style: TextStyle(
+                color: AppTheme.textPrimary, fontWeight: FontWeight.w600)),
+        content: const Text(
+            'Bản ghi cây này sẽ bị xóa vĩnh viễn và không thể khôi phục.',
+            style: TextStyle(color: AppTheme.textSecondary)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Hủy', style: TextStyle(color: AppTheme.textSecondary)),
+            child: const Text('Hủy',
+                style: TextStyle(color: AppTheme.textSecondary)),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.danger),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.danger),
             child: const Text('Xóa'),
           ),
         ],
@@ -157,367 +97,910 @@ class _InventoryScreenState extends State<InventoryScreen> with SingleTickerProv
     );
     if (confirmed == true) {
       try {
-        await FirebaseFirestore.instance.collection('inventory_trees').doc(docId).delete();
+        await FirebaseFirestore.instance
+            .collection('inventory_trees')
+            .doc(docId)
+            .delete();
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: const Text('Đã xóa dữ liệu cây'),
               backgroundColor: AppTheme.danger,
               behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
             ),
           );
         }
       } catch (e) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Lỗi xóa: $e'), backgroundColor: AppTheme.danger),
+            SnackBar(
+                content: Text('Lỗi xóa: $e'),
+                backgroundColor: AppTheme.danger),
           );
         }
       }
     }
   }
 
-  void _showPlotDetail(BuildContext context, String plotCode, List<TreeRecord> trees) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppTheme.surface,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
-      builder: (_) => DraggableScrollableSheet(
-        initialChildSize: 0.6,
-        maxChildSize: 0.9,
-        minChildSize: 0.4,
-        expand: false,
-        builder: (_, scroll) => Column(
-          children: [
-            Container(
-              width: 36, height: 3,
-              margin: const EdgeInsets.symmetric(vertical: 12),
-              decoration: BoxDecoration(color: AppTheme.border, borderRadius: BorderRadius.circular(2)),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  const Icon(Icons.grid_on, color: AppTheme.accent, size: 18),
-                  const SizedBox(width: 8),
-                  Text(plotCode, style: const TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w600, fontSize: 16)),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-            Expanded(
-              child: ListView.separated(
-                controller: scroll,
-                padding: const EdgeInsets.all(16),
-                itemCount: trees.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 8),
-                itemBuilder: (_, i) => _TreeDataCard(record: trees[i]),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   void _showAddTreeSheet(BuildContext context) {
-    final plotCodeCtrl = TextEditingController();
-    final speciesCtrl = TextEditingController();
-    final dbhCtrl = TextEditingController();
-    final heightCtrl = TextEditingController();
-    final qtyCtrl = TextEditingController(text: '1');
-    String? selectedProject;
-
     showModalBottomSheet(
       context: context,
       backgroundColor: AppTheme.surface,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
-      builder: (sheetContext) => Padding(
-        padding: EdgeInsets.fromLTRB(16, 12, 16, MediaQuery.of(sheetContext).viewInsets.bottom + 24),
-        child: StatefulBuilder(
-          builder: (context, setModalState) {
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(width: 36, height: 3, margin: const EdgeInsets.only(bottom: 16), decoration: BoxDecoration(color: AppTheme.border, borderRadius: BorderRadius.circular(2))),
-                const Text('Thêm dữ liệu cây', style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w600, fontSize: 16)),
-                const SizedBox(height: 16),
-                
-                FutureBuilder<QuerySnapshot>(
-                  future: FirebaseFirestore.instance.collection('forest_projects').where('ownerUid', isEqualTo: UserSession().ownerId).get(),
-                  builder: (context, snapshot) {
-                    if (!snapshot.hasData) return const SizedBox(height: 48, child: Center(child: CircularProgressIndicator(color: AppTheme.accent)));
-                    final projects = snapshot.data!.docs.map((d) => ForestProject.fromFirestore(d.data() as Map<String, dynamic>, d.id).name).toList();
-                    if (projects.isNotEmpty && selectedProject == null) {
-                      selectedProject = projects.first;
-                    }
-                    return DropdownButtonFormField<String>(
-                      value: selectedProject,
-                      dropdownColor: AppTheme.surface,
-                      style: const TextStyle(color: AppTheme.textPrimary, fontSize: 14),
-                      decoration: const InputDecoration(labelText: 'Dự án', prefixIcon: Icon(Icons.forest_outlined)),
-                      items: projects.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
-                      onChanged: (v) => setModalState(() => selectedProject = v),
-                    );
-                  },
-                ),
-                const SizedBox(height: 12),
-                TextFormField(controller: plotCodeCtrl, style: const TextStyle(color: AppTheme.textPrimary), decoration: const InputDecoration(labelText: 'Mã ô mẫu (VD: PLOT-01)', prefixIcon: Icon(Icons.grid_on))),
-                const SizedBox(height: 12),
-                TextFormField(controller: speciesCtrl, style: const TextStyle(color: AppTheme.textPrimary), decoration: const InputDecoration(labelText: 'Loài cây', prefixIcon: Icon(Icons.eco_outlined))),
-                const SizedBox(height: 12),
-                Row(children: [
-                  Expanded(child: TextFormField(controller: dbhCtrl, keyboardType: TextInputType.number, style: const TextStyle(color: AppTheme.textPrimary), decoration: const InputDecoration(labelText: 'DBH (cm)', prefixIcon: Icon(Icons.straighten)))),
-                  const SizedBox(width: 10),
-                  Expanded(child: TextFormField(controller: heightCtrl, keyboardType: TextInputType.number, style: const TextStyle(color: AppTheme.textPrimary), decoration: const InputDecoration(labelText: 'Chiều cao (m)', prefixIcon: Icon(Icons.height)))),
-                ]),
-                const SizedBox(height: 12),
-                TextFormField(controller: qtyCtrl, keyboardType: TextInputType.number, style: const TextStyle(color: AppTheme.textPrimary), decoration: const InputDecoration(labelText: 'Số lượng cây', prefixIcon: Icon(Icons.numbers))),
-                const SizedBox(height: 20),
-                ElevatedButton(
-                  onPressed: () async {
-                    if (selectedProject == null || plotCodeCtrl.text.isEmpty || speciesCtrl.text.isEmpty) {
-                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vui lòng nhập đủ thông tin (Dự án, Ô mẫu, Loài cây)'), backgroundColor: AppTheme.warning));
-                       return;
-                    }
-                    
-                    try {
-                      final plotCode = plotCodeCtrl.text.trim();
-                      final db = FirebaseFirestore.instance;
-                      
-                      String plotId = '';
-                      final plotSnap = await db.collection('inventory_plots')
-                        .where('code', isEqualTo: plotCode)
-                        .where('project', isEqualTo: selectedProject)
-                        .limit(1)
-                        .get();
-                        
-                      if (plotSnap.docs.isEmpty) {
-                         final plotRef = await db.collection('inventory_plots').add({
-                           'code': plotCode,
-                           'project': selectedProject,
-                           'area': 0.0,
-                           'latitude': 0.0,
-                           'longitude': 0.0,
-                           'elevation': 0.0,
-                           'status': 'Draft',
-                           'createdAt': FieldValue.serverTimestamp(),
-                         });
-                         plotId = plotRef.id;
-                      } else {
-                         plotId = plotSnap.docs.first.id;
-                      }
-
-                      await db.collection('inventory_trees').add({
-                        'plotId': plotId,
-                        'plotCode': plotCode,
-                        'project': selectedProject,
-                        'species': speciesCtrl.text.trim(),
-                        'dbh': double.tryParse(dbhCtrl.text) ?? 0.0,
-                        'height': double.tryParse(heightCtrl.text) ?? 0.0,
-                        'quantity': int.tryParse(qtyCtrl.text) ?? 1,
-                        'createdBy': UserSession().uid,
-                        'createdAt': FieldValue.serverTimestamp(),
-                      });
-                      
-                      if (context.mounted) {
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: const Text('Đã lưu dữ liệu cây!'), backgroundColor: AppTheme.success, behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-                        );
-                      }
-                    } catch (e) {
-                       if (context.mounted) {
-                         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Lỗi: $e'), backgroundColor: AppTheme.danger));
-                       }
-                    }
-                  },
-                  child: const Text('Lưu dữ liệu'),
-                ),
-              ],
-            );
-          }
-        ),
-      ),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (sheetContext) => const _AddTreeSheet(),
     );
   }
+}
+
+// ─────────────────────────────────────────────────────────────
+// TAB: Ô MẪU (PLOTS)
+// ─────────────────────────────────────────────────────────────
+class _PlotsTab extends StatelessWidget {
+  final VoidCallback onAddTree;
+  const _PlotsTab({required this.onAddTree});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('inventory_plots')
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+              child: CircularProgressIndicator(color: AppTheme.accent));
+        }
+        if (snapshot.hasError) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text('Lỗi tải dữ liệu: ${snapshot.error}',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: AppTheme.danger)),
+            ),
+          );
+        }
+
+        final docs = snapshot.data?.docs ?? [];
+        if (docs.isEmpty) {
+          return const Center(
+            child: Text('Chưa có ô mẫu nào.',
+                style: TextStyle(color: AppTheme.textSecondary)),
+          );
+        }
+
+        final plots = docs.map((doc) {
+          final d = doc.data() as Map<String, dynamic>;
+          return _PlotItem(
+            id: doc.id,
+            plotCode: d['code'] ?? d['plotCode'] ?? '—',
+            project: d['project'] ?? d['projectName'] ?? '—',
+            area: (d['area'] as num?)?.toDouble() ?? 0.0,
+            latitude: (d['latitude'] as num?)?.toDouble() ?? 0.0,
+            longitude: (d['longitude'] as num?)?.toDouble() ?? 0.0,
+            elevation: (d['elevation'] as num?)?.toDouble() ?? 0.0,
+            status: d['status'] ?? 'Draft',
+          );
+        }).toList();
+
+        return ListView.separated(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+          itemCount: plots.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 10),
+          itemBuilder: (_, i) => _PlotCard(plot: plots[i]),
+        );
+      },
+    );
+  }
+}
+
+class _PlotItem {
+  final String id;
+  final String plotCode;
+  final String project;
+  final double area;
+  final double latitude;
+  final double longitude;
+  final double elevation;
+  final String status;
+  _PlotItem({
+    required this.id,
+    required this.plotCode,
+    required this.project,
+    required this.area,
+    required this.latitude,
+    required this.longitude,
+    required this.elevation,
+    required this.status,
+  });
 }
 
 class _PlotCard extends StatelessWidget {
-  final String plotCode;
-  final String project;
-  final int speciesCount;
-  final int totalTrees;
-  final VoidCallback onTap;
-
-  const _PlotCard({
-    required this.plotCode,
-    required this.project,
-    required this.speciesCount,
-    required this.totalTrees,
-    required this.onTap,
-  });
+  final _PlotItem plot;
+  const _PlotCard({required this.plot});
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: AppTheme.cardBg,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppTheme.border, width: 0.5),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 44, height: 44,
-              decoration: BoxDecoration(color: AppTheme.accent.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
-              child: const Icon(Icons.grid_on, color: AppTheme.accent, size: 22),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(plotCode, style: const TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w600, fontSize: 14)),
-                  Text(project, style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
-                ],
-              ),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text('$speciesCount loài', style: const TextStyle(color: AppTheme.accent, fontSize: 12, fontWeight: FontWeight.w500)),
-                Text('$totalTrees cây', style: const TextStyle(color: AppTheme.textSecondary, fontSize: 11)),
-              ],
-            ),
-            const SizedBox(width: 8),
-            const Icon(Icons.chevron_right, color: AppTheme.textMuted, size: 18),
-          ],
-        ),
+    final isDraft = plot.status.toLowerCase() == 'draft';
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.cardBg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.border, width: 0.5),
       ),
-    );
-  }
-}
-
-class _TreeDataCard extends StatelessWidget {
-  final TreeRecord record;
-  final VoidCallback? onDelete;
-  const _TreeDataCard({required this.record, this.onDelete});
-
-  @override
-  Widget build(BuildContext context) {
-    final card = GestureDetector(
-      onLongPress: onDelete,
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: AppTheme.cardBg,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppTheme.border, width: 0.5),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.eco, color: AppTheme.accent, size: 16),
-                const SizedBox(width: 6),
-                Text(record.species, style: const TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w600, fontSize: 14)),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(color: AppTheme.accent.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(6)),
-                  child: Text(record.plotCode, style: const TextStyle(color: AppTheme.accent, fontSize: 11)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header row
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: AppTheme.accent.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                if (onDelete != null) ...[
-                  const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: onDelete,
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: AppTheme.danger.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: const Icon(Icons.delete_outline, color: AppTheme.danger, size: 16),
-                    ),
+                child: const Icon(Icons.grid_on,
+                    color: AppTheme.accent, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(plot.plotCode,
+                        style: const TextStyle(
+                            color: AppTheme.textPrimary,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15)),
+                    Text(plot.project,
+                        style: const TextStyle(
+                            color: AppTheme.textSecondary, fontSize: 12)),
+                  ],
+                ),
+              ),
+              // Status badge
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: isDraft
+                      ? const Color(0xFFFFF3E0)
+                      : const Color(0xFFE8F5E9),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: isDraft
+                        ? const Color(0xFFFF9800)
+                        : const Color(0xFF4CAF50),
+                    width: 0.8,
                   ),
-                ],
-              ],
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                _DataChip(label: 'DBH', value: '${record.dbhCm} cm'),
-                const SizedBox(width: 8),
-                _DataChip(label: 'Cao', value: '${record.heightM} m'),
-                const SizedBox(width: 8),
-                _DataChip(label: 'Số lượng', value: '${record.quantity} cây'),
-              ],
-            ),
-          ],
-        ),
+                ),
+                child: Text(
+                  plot.status,
+                  style: TextStyle(
+                    color: isDraft
+                        ? const Color(0xFFE65100)
+                        : const Color(0xFF2E7D32),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // Details row
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: [
+              _InfoChip(
+                icon: Icons.square_foot,
+                label: 'Diện tích',
+                value: '${plot.area.toStringAsFixed(0)} m²',
+              ),
+              _InfoChip(
+                icon: Icons.location_on_outlined,
+                label: 'Lat',
+                value: plot.latitude.toStringAsFixed(6),
+              ),
+              _InfoChip(
+                icon: Icons.location_on_outlined,
+                label: 'Lng',
+                value: plot.longitude.toStringAsFixed(6),
+              ),
+              _InfoChip(
+                icon: Icons.terrain_outlined,
+                label: 'Cao độ',
+                value: '${plot.elevation.toStringAsFixed(0)} m',
+              ),
+            ],
+          ),
+        ],
       ),
-    );
-
-    if (onDelete == null) return card;
-
-    return Dismissible(
-      key: Key(record.id),
-      direction: DismissDirection.endToStart,
-      confirmDismiss: (_) async {
-        onDelete!();
-        return false;
-      },
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 20),
-        decoration: BoxDecoration(
-          color: AppTheme.danger.withValues(alpha: 0.15),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppTheme.danger.withValues(alpha: 0.3), width: 0.5),
-        ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.delete_outline, color: AppTheme.danger, size: 22),
-            SizedBox(width: 6),
-            Text('Xóa', style: TextStyle(color: AppTheme.danger, fontWeight: FontWeight.w600, fontSize: 13)),
-          ],
-        ),
-      ),
-      child: card,
     );
   }
 }
 
-class _DataChip extends StatelessWidget {
+class _InfoChip extends StatelessWidget {
+  final IconData icon;
   final String label;
   final String value;
-  const _DataChip({required this.label, required this.value});
+  const _InfoChip(
+      {required this.icon, required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
         color: AppTheme.surfaceLight,
         borderRadius: BorderRadius.circular(7),
         border: Border.all(color: AppTheme.border, width: 0.5),
       ),
-      child: Column(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Text(label, style: const TextStyle(color: AppTheme.textMuted, fontSize: 10)),
-          const SizedBox(height: 1),
-          Text(value, style: const TextStyle(color: AppTheme.textPrimary, fontSize: 12, fontWeight: FontWeight.w600)),
+          Icon(icon, size: 12, color: AppTheme.textMuted),
+          const SizedBox(width: 4),
+          Text('$label: ',
+              style: const TextStyle(
+                  color: AppTheme.textMuted, fontSize: 11)),
+          Text(value,
+              style: const TextStyle(
+                  color: AppTheme.textPrimary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600)),
         ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// TAB: DỮ LIỆU CÂY
+// ─────────────────────────────────────────────────────────────
+class _TreeDataTab extends StatefulWidget {
+  final Future<void> Function(BuildContext, String) onDelete;
+  const _TreeDataTab({required this.onDelete});
+
+  @override
+  State<_TreeDataTab> createState() => _TreeDataTabState();
+}
+
+class _TreeDataTabState extends State<_TreeDataTab> {
+  String _searchQuery = '';
+  final _searchCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        // Search & filter bar
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _searchCtrl,
+                  style: const TextStyle(
+                      color: AppTheme.textPrimary, fontSize: 13),
+                  decoration: InputDecoration(
+                    hintText: 'Tìm kiếm dữ liệu cây...',
+                    hintStyle:
+                        const TextStyle(color: AppTheme.textMuted, fontSize: 13),
+                    prefixIcon: const Icon(Icons.search,
+                        color: AppTheme.textMuted, size: 18),
+                    suffixIcon: _searchQuery.isNotEmpty
+                        ? GestureDetector(
+                            onTap: () {
+                              _searchCtrl.clear();
+                              setState(() => _searchQuery = '');
+                            },
+                            child: const Icon(Icons.close,
+                                color: AppTheme.textMuted, size: 16))
+                        : null,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                    filled: true,
+                    fillColor: AppTheme.cardBg,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide:
+                          const BorderSide(color: AppTheme.border, width: 0.5),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide:
+                          const BorderSide(color: AppTheme.border, width: 0.5),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide:
+                          const BorderSide(color: AppTheme.accent, width: 1),
+                    ),
+                  ),
+                  onChanged: (v) => setState(() => _searchQuery = v.toLowerCase()),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+
+        // Table header
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: AppTheme.accent.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Row(
+            children: [
+              Expanded(
+                  flex: 3,
+                  child: Text('Mã ô mẫu',
+                      style: TextStyle(
+                          color: AppTheme.accent,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600))),
+              Expanded(
+                  flex: 3,
+                  child: Text('Loài cây',
+                      style: TextStyle(
+                          color: AppTheme.textSecondary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600))),
+              Expanded(
+                  flex: 2,
+                  child: Text('DBH (cm)',
+                      style: TextStyle(
+                          color: AppTheme.textSecondary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600),
+                      textAlign: TextAlign.center)),
+              Expanded(
+                  flex: 2,
+                  child: Text('Cao (m)',
+                      style: TextStyle(
+                          color: AppTheme.textSecondary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600),
+                      textAlign: TextAlign.center)),
+              Expanded(
+                  flex: 2,
+                  child: Text('SL cây',
+                      style: TextStyle(
+                          color: AppTheme.textSecondary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600),
+                      textAlign: TextAlign.center)),
+              SizedBox(width: 32),
+            ],
+          ),
+        ),
+        const SizedBox(height: 4),
+
+        // Tree list
+        Expanded(
+          child: StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('inventory_trees')
+                .snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(
+                    child:
+                        CircularProgressIndicator(color: AppTheme.accent));
+              }
+              if (snapshot.hasError) {
+                return Center(
+                    child: Text('Lỗi: ${snapshot.error}',
+                        style:
+                            const TextStyle(color: AppTheme.danger)));
+              }
+
+              List<TreeRecord> trees = [];
+              if (snapshot.hasData) {
+                trees = snapshot.data!.docs.map((doc) {
+                  return TreeRecord.fromFirestore(
+                      doc.data() as Map<String, dynamic>, doc.id);
+                }).toList();
+                trees.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+              }
+
+              // Filter by search
+              if (_searchQuery.isNotEmpty) {
+                trees = trees.where((t) {
+                  return t.plotCode.toLowerCase().contains(_searchQuery) ||
+                      t.species.toLowerCase().contains(_searchQuery) ||
+                      t.project.toLowerCase().contains(_searchQuery);
+                }).toList();
+              }
+
+              if (trees.isEmpty) {
+                return Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.eco_outlined,
+                          color: AppTheme.textMuted.withValues(alpha: 0.5),
+                          size: 48),
+                      const SizedBox(height: 12),
+                      const Text('Không có dữ liệu cây',
+                          style:
+                              TextStyle(color: AppTheme.textSecondary)),
+                    ],
+                  ),
+                );
+              }
+
+              return ListView.builder(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
+                itemCount: trees.length,
+                itemBuilder: (_, i) => _TreeRow(
+                  record: trees[i],
+                  onDelete: () =>
+                      widget.onDelete(context, trees[i].id),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TreeRow extends StatelessWidget {
+  final TreeRecord record;
+  final VoidCallback onDelete;
+  const _TreeRow({required this.record, required this.onDelete});
+
+  @override
+  Widget build(BuildContext context) {
+    return Dismissible(
+      key: Key(record.id),
+      direction: DismissDirection.endToStart,
+      confirmDismiss: (_) async {
+        onDelete();
+        return false;
+      },
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        margin: const EdgeInsets.symmetric(vertical: 1),
+        decoration: BoxDecoration(
+          color: AppTheme.danger.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.delete_outline, color: AppTheme.danger, size: 20),
+            SizedBox(width: 4),
+            Text('Xóa',
+                style: TextStyle(
+                    color: AppTheme.danger,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12)),
+          ],
+        ),
+      ),
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 1),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppTheme.cardBg,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppTheme.border, width: 0.5),
+        ),
+        child: Row(
+          children: [
+            // Plot Code (clickable/highlighted like web admin)
+            Expanded(
+              flex: 3,
+              child: Text(
+                record.plotCode,
+                style: const TextStyle(
+                    color: AppTheme.accent,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600),
+              ),
+            ),
+            // Species
+            Expanded(
+              flex: 3,
+              child: Text(
+                record.species,
+                style: const TextStyle(
+                    color: AppTheme.textPrimary, fontSize: 12),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            // DBH
+            Expanded(
+              flex: 2,
+              child: Text(
+                record.dbhCm.toStringAsFixed(0),
+                style: const TextStyle(
+                    color: AppTheme.textPrimary, fontSize: 12),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            // Height
+            Expanded(
+              flex: 2,
+              child: Text(
+                record.heightM.toStringAsFixed(0),
+                style: const TextStyle(
+                    color: AppTheme.textPrimary, fontSize: 12),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            // Quantity
+            Expanded(
+              flex: 2,
+              child: Text(
+                '${record.quantity} cây',
+                style: const TextStyle(
+                    color: AppTheme.textSecondary, fontSize: 11),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            // Delete button
+            GestureDetector(
+              onTap: onDelete,
+              child: Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: AppTheme.danger.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Icon(Icons.delete_outline,
+                    color: AppTheme.danger, size: 15),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// BOTTOM SHEET: THÊM DỮ LIỆU CÂY
+// ─────────────────────────────────────────────────────────────
+class _AddTreeSheet extends StatefulWidget {
+  const _AddTreeSheet();
+
+  @override
+  State<_AddTreeSheet> createState() => _AddTreeSheetState();
+}
+
+class _AddTreeSheetState extends State<_AddTreeSheet> {
+  final _speciesCtrl = TextEditingController();
+  final _dbhCtrl = TextEditingController();
+  final _heightCtrl = TextEditingController();
+  final _qtyCtrl = TextEditingController(text: '1');
+
+  String? _selectedProjectId;
+  String? _selectedProjectName;
+  String? _selectedPlotId;
+  String? _selectedPlotCode;
+
+  List<Map<String, String>> _projects = [];
+  List<Map<String, String>> _plots = [];
+  bool _loadingProjects = true;
+  bool _loadingPlots = false;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProjects();
+  }
+
+  @override
+  void dispose() {
+    _speciesCtrl.dispose();
+    _dbhCtrl.dispose();
+    _heightCtrl.dispose();
+    _qtyCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadProjects() async {
+    final snap = await FirebaseFirestore.instance
+        .collection('forest_projects')
+        .where('ownerUid', isEqualTo: UserSession().ownerId)
+        .get();
+    final list = snap.docs.map((d) {
+      final data = d.data();
+      return {
+        'id': d.id,
+        'name': (data['projectName'] ?? data['name'] ?? 'Không rõ').toString(),
+      };
+    }).toList();
+    if (mounted) {
+      setState(() {
+        _projects = list;
+        _loadingProjects = false;
+        if (list.isNotEmpty) {
+          _selectedProjectId = list.first['id'];
+          _selectedProjectName = list.first['name'];
+          _loadPlots(list.first['id']!);
+        }
+      });
+    }
+  }
+
+  Future<void> _loadPlots(String projectId) async {
+    setState(() {
+      _loadingPlots = true;
+      _selectedPlotId = null;
+      _selectedPlotCode = null;
+      _plots = [];
+    });
+    final snap = await FirebaseFirestore.instance
+        .collection('inventory_plots')
+        .where('projectId', isEqualTo: projectId)
+        .get();
+
+    // Nếu lưu theo tên dự án thay vì ID, thử filter theo tên
+    List<QueryDocumentSnapshot> docs = snap.docs;
+    if (docs.isEmpty && _selectedProjectName != null) {
+      final snap2 = await FirebaseFirestore.instance
+          .collection('inventory_plots')
+          .where('project', isEqualTo: _selectedProjectName)
+          .get();
+      docs = snap2.docs;
+    }
+
+    final list = docs.map((d) {
+      final data = d.data() as Map<String, dynamic>;
+      return {
+        'id': d.id,
+        'code': (data['code'] ?? data['plotCode'] ?? '—').toString(),
+      };
+    }).toList();
+
+    if (mounted) {
+      setState(() {
+        _plots = list;
+        _loadingPlots = false;
+        if (list.isNotEmpty) {
+          _selectedPlotId = list.first['id'];
+          _selectedPlotCode = list.first['code'];
+        }
+      });
+    }
+  }
+
+  Future<void> _save() async {
+    if (_selectedProjectId == null ||
+        _selectedPlotId == null ||
+        _speciesCtrl.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Vui lòng chọn đủ Dự án, Ô mẫu và nhập Loài cây'),
+          backgroundColor: AppTheme.warning));
+      return;
+    }
+
+    setState(() => _saving = true);
+    try {
+      await FirebaseFirestore.instance.collection('inventory_trees').add({
+        'plotId': _selectedPlotId,
+        'plotCode': _selectedPlotCode,
+        'projectId': _selectedProjectId,
+        'project': _selectedProjectName,
+        'species': _speciesCtrl.text.trim(),
+        'dbh': double.tryParse(_dbhCtrl.text) ?? 0.0,
+        'height': double.tryParse(_heightCtrl.text) ?? 0.0,
+        'quantity': int.tryParse(_qtyCtrl.text) ?? 1,
+        'createdBy': UserSession().uid,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Đã lưu dữ liệu cây!'),
+            backgroundColor: AppTheme.success,
+            behavior: SnackBarBehavior.floating,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Lỗi: $e'), backgroundColor: AppTheme.danger));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+          16, 12, 16, MediaQuery.of(context).viewInsets.bottom + 24),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Handle bar
+            Center(
+              child: Container(
+                width: 36,
+                height: 3,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                    color: AppTheme.border,
+                    borderRadius: BorderRadius.circular(2)),
+              ),
+            ),
+            const Text('Thêm dữ liệu cây',
+                style: TextStyle(
+                    color: AppTheme.textPrimary,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16)),
+            const SizedBox(height: 16),
+
+            // Dự án dropdown
+            if (_loadingProjects)
+              const SizedBox(
+                  height: 48,
+                  child: Center(
+                      child: CircularProgressIndicator(
+                          color: AppTheme.accent, strokeWidth: 2)))
+            else
+              DropdownButtonFormField<String>(
+                initialValue: _selectedProjectId,
+                dropdownColor: AppTheme.surface,
+                style: const TextStyle(
+                    color: AppTheme.textPrimary, fontSize: 14),
+                decoration: const InputDecoration(
+                    labelText: 'Dự án',
+                    prefixIcon: Icon(Icons.forest_outlined)),
+                items: _projects
+                    .map((p) => DropdownMenuItem(
+                        value: p['id'],
+                        child: Text(p['name']!,
+                            overflow: TextOverflow.ellipsis)))
+                    .toList(),
+                onChanged: (v) {
+                  if (v == null) return;
+                  final proj =
+                      _projects.firstWhere((p) => p['id'] == v);
+                  setState(() {
+                    _selectedProjectId = v;
+                    _selectedProjectName = proj['name'];
+                  });
+                  _loadPlots(v);
+                },
+              ),
+
+            const SizedBox(height: 12),
+
+            // Ô mẫu dropdown
+            if (_loadingPlots)
+              const SizedBox(
+                  height: 48,
+                  child: Center(
+                      child: CircularProgressIndicator(
+                          color: AppTheme.accent, strokeWidth: 2)))
+            else
+              DropdownButtonFormField<String>(
+                initialValue: _selectedPlotId,
+                dropdownColor: AppTheme.surface,
+                style: const TextStyle(
+                    color: AppTheme.textPrimary, fontSize: 14),
+                decoration: const InputDecoration(
+                    labelText: 'Ô mẫu (Plot)',
+                    prefixIcon: Icon(Icons.grid_on)),
+                hint: const Text('Chọn ô mẫu',
+                    style: TextStyle(
+                        color: AppTheme.textMuted, fontSize: 13)),
+                items: _plots
+                    .map((p) => DropdownMenuItem(
+                        value: p['id'], child: Text(p['code']!)))
+                    .toList(),
+                onChanged: (v) {
+                  if (v == null) return;
+                  final plot =
+                      _plots.firstWhere((p) => p['id'] == v);
+                  setState(() {
+                    _selectedPlotId = v;
+                    _selectedPlotCode = plot['code'];
+                  });
+                },
+              ),
+
+            const SizedBox(height: 12),
+
+            // Loài cây
+            TextFormField(
+              controller: _speciesCtrl,
+              style: const TextStyle(color: AppTheme.textPrimary),
+              decoration: const InputDecoration(
+                  labelText: 'Loài cây',
+                  prefixIcon: Icon(Icons.eco_outlined)),
+            ),
+            const SizedBox(height: 12),
+
+            // DBH + Height
+            Row(children: [
+              Expanded(
+                child: TextFormField(
+                  controller: _dbhCtrl,
+                  keyboardType: TextInputType.number,
+                  style:
+                      const TextStyle(color: AppTheme.textPrimary),
+                  decoration: const InputDecoration(
+                      labelText: 'DBH (cm)',
+                      prefixIcon: Icon(Icons.straighten)),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: TextFormField(
+                  controller: _heightCtrl,
+                  keyboardType: TextInputType.number,
+                  style:
+                      const TextStyle(color: AppTheme.textPrimary),
+                  decoration: const InputDecoration(
+                      labelText: 'Chiều cao (m)',
+                      prefixIcon: Icon(Icons.height)),
+                ),
+              ),
+            ]),
+            const SizedBox(height: 12),
+
+            // Số lượng
+            TextFormField(
+              controller: _qtyCtrl,
+              keyboardType: TextInputType.number,
+              style: const TextStyle(color: AppTheme.textPrimary),
+              decoration: const InputDecoration(
+                  labelText: 'Số lượng cây',
+                  prefixIcon: Icon(Icons.numbers)),
+            ),
+            const SizedBox(height: 20),
+
+            // Save button
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _saving ? null : _save,
+                child: _saving
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(
+                            color: Colors.white, strokeWidth: 2))
+                    : const Text('Lưu dữ liệu'),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
