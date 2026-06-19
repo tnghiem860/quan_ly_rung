@@ -325,10 +325,10 @@ class HomeScreen extends StatelessWidget {
   Widget _buildStatsGrid(BuildContext context) {
     return FutureBuilder<List<int>>(
       future: Future.wait([
-        FirebaseFirestore.instance.collection('forest_projects').where('ownerUid', isEqualTo: UserSession().ownerId).count().get().then((res) => res.count ?? 0),
-        FirebaseFirestore.instance.collection('logbook_activities').where('user', isEqualTo: UserSession().uid).count().get().then((res) => res.count ?? 0),
-        FirebaseFirestore.instance.collection('logbook_activities').where('user', isEqualTo: UserSession().uid).where('synced', isEqualTo: false).count().get().then((res) => res.count ?? 0),
-        FirebaseFirestore.instance.collection('checkins').where('createdBy', isEqualTo: UserSession().uid).count().get().then((res) => res.count ?? 0),
+        FirebaseFirestore.instance.collection('forest_projects').where('ownerUid', isEqualTo: UserSession().ownerId).count().get().then((res) => res.count ?? 0).catchError((e) { debugPrint('Error projects: $e'); return 0; }),
+        FirebaseFirestore.instance.collection('logbook_activities').where('user', isEqualTo: UserSession().uid).count().get().then((res) => res.count ?? 0).catchError((e) { debugPrint('Error logs: $e'); return 0; }),
+        FirebaseFirestore.instance.collection('logbook_activities').where('user', isEqualTo: UserSession().uid).where('synced', isEqualTo: false).count().get().then((res) => res.count ?? 0).catchError((e) { debugPrint('Error unsynced logs: $e'); return 0; }),
+        FirebaseFirestore.instance.collection('checkins').where('createdBy', isEqualTo: UserSession().uid).count().get().then((res) => res.count ?? 0).catchError((e) { debugPrint('Error checkins: $e'); return 0; }),
       ]),
       builder: (context, snapshot) {
         final data = snapshot.data ?? [0, 0, 0, 0];
