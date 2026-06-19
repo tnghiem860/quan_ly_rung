@@ -7,6 +7,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import '../main.dart';
 import '../models/models.dart';
 import '../services/user_session.dart';
+import '../services/notification_service.dart';
 import '../widgets/section_header.dart';
 
 class CheckInScreen extends StatefulWidget {
@@ -158,6 +159,13 @@ class _CheckInScreenState extends State<CheckInScreen> {
         docRef.set(dataToSave);
       } else {
         await docRef.set(dataToSave);
+        // Gửi thông báo lên web admin (chỉ khi online)
+        await NotificationService().pushCheckIn(
+          project: _selectedProject ?? '',
+          docId: docRef.id,
+          lat: _lat,
+          lng: _lng,
+        );
       }
 
       setState(() {
@@ -510,7 +518,7 @@ class _CheckInScreenState extends State<CheckInScreen> {
         const Text('Dự án', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13, fontWeight: FontWeight.w500)),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
-          value: _selectedProject,
+          initialValue: _selectedProject,
           dropdownColor: AppTheme.surface,
           style: const TextStyle(color: AppTheme.textPrimary, fontSize: 14),
           decoration: const InputDecoration(),

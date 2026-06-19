@@ -1,7 +1,6 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'dart:convert';
 import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -11,6 +10,7 @@ import 'package:path_provider/path_provider.dart';
 import '../main.dart';
 import '../models/models.dart';
 import '../services/user_session.dart';
+import '../services/notification_service.dart';
 
 class NewLogbookScreen extends StatefulWidget {
   const NewLogbookScreen({super.key});
@@ -247,6 +247,12 @@ class _NewLogbookScreenState extends State<NewLogbookScreen> {
       } else {
         // Đợi server xác nhận nếu đang có mạng
         await docRef.set(dataToSave);
+        // Gửi thông báo lên web admin
+        await NotificationService().pushLogbookEntry(
+          project: _selectedProject ?? '',
+          activityType: _selectedActivity ?? '',
+          docId: docRef.id,
+        );
       }
 
       if (mounted) {
@@ -439,7 +445,7 @@ class _NewLogbookScreenState extends State<NewLogbookScreen> {
 
   Widget _buildProjectSelector() {
     return DropdownButtonFormField<String>(
-      value: _selectedProject,
+      initialValue: _selectedProject,
       dropdownColor: AppTheme.surface,
       style: const TextStyle(color: AppTheme.textPrimary, fontSize: 14),
       decoration: const InputDecoration(),

@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../main.dart';
 import '../models/models.dart';
 import '../services/user_session.dart';
+import '../services/notification_service.dart';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
@@ -802,7 +803,7 @@ class _AddTreeSheetState extends State<_AddTreeSheet> {
 
     setState(() => _saving = true);
     try {
-      await FirebaseFirestore.instance.collection('inventory_trees').add({
+      final docRef = await FirebaseFirestore.instance.collection('inventory_trees').add({
         'plotId': _selectedPlotId,
         'plotCode': _selectedPlotCode,
         'projectId': _selectedProjectId,
@@ -814,6 +815,15 @@ class _AddTreeSheetState extends State<_AddTreeSheet> {
         'createdBy': UserSession().uid,
         'createdAt': FieldValue.serverTimestamp(),
       });
+
+      // Gửi thông báo lên web admin
+      await NotificationService().pushTreeData(
+        project: _selectedProjectName ?? '',
+        plotCode: _selectedPlotCode ?? '',
+        species: _speciesCtrl.text.trim(),
+        quantity: int.tryParse(_qtyCtrl.text) ?? 1,
+        docId: docRef.id,
+      );
 
       if (mounted) {
         Navigator.pop(context);
