@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../main.dart';
 import '../services/user_session.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-
+import 'package:firebase_auth/firebase_auth.dart';
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -27,7 +27,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       final logbooks = await FirebaseFirestore.instance.collection('logbook_activities').where('user', isEqualTo: UserSession().uid).count().get();
       final checkins = await FirebaseFirestore.instance.collection('checkins').where('createdBy', isEqualTo: UserSession().uid).count().get();
-      final projectsSnap = await FirebaseFirestore.instance.collection('forest_projects').where('ownerId', isEqualTo: UserSession().ownerId).get();
+      final projectsSnap = await FirebaseFirestore.instance.collection('forest_projects').where('ownerUid', isEqualTo: UserSession().ownerId).get();
 
       if (mounted) {
         setState(() {
@@ -196,8 +196,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
       children: [
         _SettingsRow(icon: Icons.notifications_outlined, label: 'Thông báo', trailing: Switch(value: true, onChanged: (_) {}, activeColor: AppTheme.accent)),
         _SettingsRow(icon: Icons.language_outlined, label: 'Ngôn ngữ', trailing: const Text('Tiếng Việt', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13))),
-        _SettingsRow(icon: Icons.lock_outline, label: 'Đổi mật khẩu', trailing: const Icon(Icons.chevron_right, color: AppTheme.textMuted, size: 18)),
+        _SettingsRow(
+          icon: Icons.lock_outline, 
+          label: 'Đổi mật khẩu', 
+          trailing: const Icon(Icons.chevron_right, color: AppTheme.textMuted, size: 18),
+          onTap: () => _showChangePasswordDialog(context),
+        ),
       ],
+    );
+  }
+
+  void _showChangePasswordDialog(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.surface,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => _ChangePasswordSheet(uid: UserSession().uid),
     );
   }
 
@@ -349,19 +366,24 @@ class _SettingsRow extends StatelessWidget {
   final IconData icon;
   final String label;
   final Widget trailing;
-  const _SettingsRow({required this.icon, required this.label, required this.trailing});
+  final VoidCallback? onTap;
+  const _SettingsRow({required this.icon, required this.label, required this.trailing, this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-      child: Row(
-        children: [
-          Icon(icon, color: AppTheme.textSecondary, size: 18),
-          const SizedBox(width: 12),
-          Expanded(child: Text(label, style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13))),
-          trailing,
-        ],
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: [
+            Icon(icon, color: AppTheme.textSecondary, size: 18),
+            const SizedBox(width: 12),
+            Expanded(child: Text(label, style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13))),
+            trailing,
+          ],
+        ),
       ),
     );
   }
@@ -507,6 +529,173 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+// ── Bottom Sheet Đổi mật khẩu ────────────────────────────────────────────────
+class _ChangePasswordSheet extends StatefulWidget {
+  final String uid;
+  const _ChangePasswordSheet({required this.uid});
+
+  @override
+  State<_ChangePasswordSheet> createState() => _ChangePasswordSheetState();
+}
+
+class _ChangePasswordSheetState extends State<_ChangePasswordSheet> {
+  final _currentPwdCtrl = TextEditingController();
+  final _newPwdCtrl = TextEditingController();
+  bool _obscureCurrent = true;
+  bool _obscureNew = true;
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _currentPwdCtrl.dispose();
+    _newPwdCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _changePassword() async {
+    final currentPwd = _currentPwdCtrl.text.trim();
+    final newPwd = _newPwdCtrl.text.trim();
+
+    if (currentPwd.isEmpty || newPwd.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vui lòng nhập đầy đủ thông tin')),
+      );
+      return;
+    }
+
+    if (newPwd.length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Mật khẩu mới phải có ít nhất 6 ký tự')),
+      );
+      return;
+    }
+
+    setState(() => _saving = true);
+    try {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(widget.uid).get();
+      if (!doc.exists) {
+        throw Exception('Không tìm thấy tài khoản');
+      }
+
+      final data = doc.data() as Map<String, dynamic>;
+      final dbPassword = data['password'] ?? '';
+
+      if (currentPwd != dbPassword) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Mật khẩu hiện tại không đúng'), backgroundColor: AppTheme.danger),
+          );
+        }
+        setState(() => _saving = false);
+        return;
+      }
+
+      // Cập nhật mật khẩu trong Firebase Auth
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null && user.email != null) {
+        try {
+          final credential = EmailAuthProvider.credential(
+            email: user.email!,
+            password: currentPwd,
+          );
+          // Xác thực lại trước khi đổi mật khẩu
+          await user.reauthenticateWithCredential(credential);
+          await user.updatePassword(newPwd);
+        } catch (authError) {
+          // Bỏ qua lỗi nếu user dùng fallback login (không có Auth)
+          debugPrint('Firebase Auth update failed: $authError');
+        }
+      }
+
+      await FirebaseFirestore.instance.collection('users').doc(widget.uid).update({
+        'password': newPwd,
+      });
+
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Đổi mật khẩu thành công!', style: TextStyle(color: Colors.white)),
+            backgroundColor: AppTheme.success,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi cập nhật: $e'), backgroundColor: AppTheme.danger),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 16, 20, 20 + bottomInset),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              width: 40, height: 4,
+              decoration: BoxDecoration(color: AppTheme.textMuted, borderRadius: BorderRadius.circular(2)),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              const Text('Đổi mật khẩu', style: TextStyle(color: AppTheme.textPrimary, fontSize: 17, fontWeight: FontWeight.w700)),
+              const Spacer(),
+              TextButton(
+                onPressed: _saving ? null : _changePassword,
+                child: _saving
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.accent))
+                    : const Text('Lưu', style: TextStyle(color: AppTheme.accent, fontWeight: FontWeight.w700, fontSize: 15)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: _currentPwdCtrl,
+            obscureText: _obscureCurrent,
+            style: const TextStyle(color: AppTheme.textPrimary),
+            decoration: InputDecoration(
+              labelText: 'Mật khẩu hiện tại',
+              prefixIcon: const Icon(Icons.lock_outline),
+              suffixIcon: IconButton(
+                icon: Icon(_obscureCurrent ? Icons.visibility_outlined : Icons.visibility_off_outlined, color: AppTheme.textSecondary),
+                onPressed: () => setState(() => _obscureCurrent = !_obscureCurrent),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _newPwdCtrl,
+            obscureText: _obscureNew,
+            style: const TextStyle(color: AppTheme.textPrimary),
+            decoration: InputDecoration(
+              labelText: 'Mật khẩu mới',
+              prefixIcon: const Icon(Icons.lock_reset_outlined),
+              suffixIcon: IconButton(
+                icon: Icon(_obscureNew ? Icons.visibility_outlined : Icons.visibility_off_outlined, color: AppTheme.textSecondary),
+                onPressed: () => setState(() => _obscureNew = !_obscureNew),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
         ],
       ),
     );

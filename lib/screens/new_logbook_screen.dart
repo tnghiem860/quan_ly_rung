@@ -6,6 +6,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 import '../main.dart';
 import '../models/models.dart';
 import '../services/user_session.dart';
@@ -41,7 +43,7 @@ class _NewLogbookScreenState extends State<NewLogbookScreen> {
   Future<void> _fetchData() async {
     try {
       final actSnap = await FirebaseFirestore.instance.collection('activities').get();
-      final projSnap = await FirebaseFirestore.instance.collection('forest_projects').where('ownerId', isEqualTo: UserSession().ownerId).get();
+      final projSnap = await FirebaseFirestore.instance.collection('forest_projects').where('ownerUid', isEqualTo: UserSession().ownerId).get();
       
       setState(() {
         _activities = actSnap.docs.map((doc) => doc['name'] as String).toList();
@@ -174,6 +176,29 @@ class _NewLogbookScreenState extends State<NewLogbookScreen> {
     return uploadedPhotos;
   }
 
+  // Lưu ảnh xuống bộ nhớ cục bộ khi Offline
+  Future<List<Map<String, dynamic>>> _savePhotosLocally() async {
+    final List<Map<String, dynamic>> localPhotos = [];
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      for (int i = 0; i < _pickedPhotos.length; i++) {
+        final Uint8List bytes = await _pickedPhotos[i].readAsBytes();
+        final String fileName = '${DateTime.now().millisecondsSinceEpoch}_$i.jpg';
+        final localFile = File('${dir.path}/$fileName');
+        await localFile.writeAsBytes(bytes);
+
+        localPhotos.add({
+          'localPath': localFile.path,
+          'name': fileName,
+          'storagePath': 'logbook_photos/$fileName',
+        });
+      }
+    } catch (e) {
+      debugPrint('Lỗi lưu ảnh cục bộ: $e');
+    }
+    return localPhotos;
+  }
+
   Future<void> _save() async {
     if (_descCtrl.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -188,10 +213,14 @@ class _NewLogbookScreenState extends State<NewLogbookScreen> {
       final connectivityResult = await Connectivity().checkConnectivity();
       bool isOffline = connectivityResult == ConnectivityResult.none;
 
-      // Upload ảnh lên Storage
+      // Upload ảnh lên Storage (Online) hoặc lưu cục bộ (Offline)
       List<Map<String, dynamic>> photoData = [];
-      if (_pickedPhotos.isNotEmpty && !isOffline) {
-        photoData = await _uploadPhotosToStorage();
+      if (_pickedPhotos.isNotEmpty) {
+        if (!isOffline) {
+          photoData = await _uploadPhotosToStorage();
+        } else {
+          photoData = await _savePhotosLocally();
+        }
       }
 
       // Chuẩn bị dữ liệu
@@ -208,6 +237,7 @@ class _NewLogbookScreenState extends State<NewLogbookScreen> {
         'date': Timestamp.fromDate(DateTime.now()),
         'synced': !isOffline,
         'user': UserSession().uid,
+        'userName': UserSession().fullName,
       };
 
       // Ghi dữ liệu

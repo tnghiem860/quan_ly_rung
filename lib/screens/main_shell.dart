@@ -5,6 +5,7 @@ import 'checkin_screen.dart';
 import 'logbook_screen.dart';
 import 'inventory_screen.dart';
 import 'profile_screen.dart';
+import '../services/sync_service.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -15,6 +16,18 @@ class MainShell extends StatefulWidget {
 
 class MainShellState extends State<MainShell> {
   int _currentIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    SyncService().startListening();
+  }
+
+  @override
+  void dispose() {
+    SyncService().stopListening();
+    super.dispose();
+  }
 
   final List<Widget> _screens = const [
     HomeScreen(),

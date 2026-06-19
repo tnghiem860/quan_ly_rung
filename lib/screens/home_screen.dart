@@ -4,7 +4,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:convert';
 import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
+import 'dart:io';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:path_provider/path_provider.dart';
 import '../main.dart';
 import '../models/models.dart';
 import '../widgets/stat_card.dart';
@@ -318,7 +320,7 @@ class HomeScreen extends StatelessWidget {
   Widget _buildStatsGrid(BuildContext context) {
     return FutureBuilder<List<int>>(
       future: Future.wait([
-        FirebaseFirestore.instance.collection('forest_projects').where('ownerId', isEqualTo: UserSession().ownerId).count().get().then((res) => res.count ?? 0),
+        FirebaseFirestore.instance.collection('forest_projects').where('ownerUid', isEqualTo: UserSession().ownerId).count().get().then((res) => res.count ?? 0),
         FirebaseFirestore.instance.collection('logbook_activities').where('user', isEqualTo: UserSession().uid).count().get().then((res) => res.count ?? 0),
         FirebaseFirestore.instance.collection('logbook_activities').where('user', isEqualTo: UserSession().uid).where('synced', isEqualTo: false).count().get().then((res) => res.count ?? 0),
         FirebaseFirestore.instance.collection('checkins').where('createdBy', isEqualTo: UserSession().uid).count().get().then((res) => res.count ?? 0),
@@ -460,13 +462,17 @@ class HomeScreen extends StatelessWidget {
 
     try {
       if (!context.mounted) return;
+      final connectivityResult = await Connectivity().checkConnectivity();
+      bool isOffline = connectivityResult == ConnectivityResult.none;
+
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Row(
+          content: Row(
             children: [
-              SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
-              SizedBox(width: 12),
-              Text('Đang tải ảnh lên...'),
+              const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+              const SizedBox(width: 12),
+              Text(isOffline ? 'Đang lưu ảnh cục bộ...' : 'Đang tải ảnh lên...'),
             ],
           ),
           backgroundColor: AppTheme.primaryLight,
@@ -474,16 +480,27 @@ class HomeScreen extends StatelessWidget {
         ),
       );
 
-      // Upload ảnh lên Storage
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final fileName = 'quick_photo_$timestamp.jpg';
       final Uint8List bytes = await photo.readAsBytes();
-      
-      final storageRef = FirebaseStorage.instance.ref();
       final String storagePath = 'logbook_photos/$fileName';
-      final imageRef = storageRef.child(storagePath);
-      await imageRef.putData(bytes);
-      final downloadUrl = await imageRef.getDownloadURL();
+      
+      String? downloadUrl;
+      String? localPath;
+
+      if (isOffline) {
+        // Lưu cục bộ
+        final dir = await getApplicationDocumentsDirectory();
+        final localFile = File('${dir.path}/$fileName');
+        await localFile.writeAsBytes(bytes);
+        localPath = localFile.path;
+      } else {
+        // Upload lên Storage
+        final storageRef = FirebaseStorage.instance.ref();
+        final imageRef = storageRef.child(storagePath);
+        await imageRef.putData(bytes);
+        downloadUrl = await imageRef.getDownloadURL();
+      }
 
       // Lấy vị trí GPS thực (nếu có)
       double lat = 0;
@@ -505,12 +522,10 @@ class HomeScreen extends StatelessWidget {
         }
       } catch (_) {}
 
-      final connectivityResult = await Connectivity().checkConnectivity();
-      bool isOffline = connectivityResult == ConnectivityResult.none;
-
       final docRef = FirebaseFirestore.instance.collection('quick_photos').doc();
       final dataToSave = {
         'url': downloadUrl,
+        'localPath': localPath,
         'storagePath': storagePath,
         'fileName': fileName,
         'location': {'lat': lat, 'lng': lng},

@@ -62,6 +62,7 @@ class _LogbookScreenState extends State<LogbookScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'logbook_fab',
         onPressed: () => Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const NewLogbookScreen()),

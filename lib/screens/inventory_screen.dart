@@ -48,6 +48,7 @@ class _InventoryScreenState extends State<InventoryScreen> with SingleTickerProv
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'inventory_fab',
         onPressed: () => _showAddTreeSheet(context),
         backgroundColor: AppTheme.accent,
         foregroundColor: AppTheme.background,
@@ -247,7 +248,7 @@ class _InventoryScreenState extends State<InventoryScreen> with SingleTickerProv
                 const SizedBox(height: 16),
                 
                 FutureBuilder<QuerySnapshot>(
-                  future: FirebaseFirestore.instance.collection('forest_projects').where('ownerId', isEqualTo: UserSession().ownerId).get(),
+                  future: FirebaseFirestore.instance.collection('forest_projects').where('ownerUid', isEqualTo: UserSession().ownerId).get(),
                   builder: (context, snapshot) {
                     if (!snapshot.hasData) return const SizedBox(height: 48, child: Center(child: CircularProgressIndicator(color: AppTheme.accent)));
                     final projects = snapshot.data!.docs.map((d) => ForestProject.fromFirestore(d.data() as Map<String, dynamic>, d.id).name).toList();

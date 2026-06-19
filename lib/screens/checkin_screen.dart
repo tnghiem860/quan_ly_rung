@@ -36,7 +36,7 @@ class _CheckInScreenState extends State<CheckInScreen> {
 
   Future<void> _fetchData() async {
     try {
-      final projSnap = await FirebaseFirestore.instance.collection('forest_projects').where('ownerId', isEqualTo: UserSession().ownerId).get();
+      final projSnap = await FirebaseFirestore.instance.collection('forest_projects').where('ownerUid', isEqualTo: UserSession().ownerId).get();
       setState(() {
         _projects = projSnap.docs.map((doc) => ForestProject.fromFirestore(doc.data(), doc.id).name).toList();
         if (_projects.isNotEmpty) _selectedProject = _projects.first;
