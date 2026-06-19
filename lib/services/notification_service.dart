@@ -26,20 +26,33 @@ class NotificationService {
     try {
       final session = UserSession();
       final ownerId = session.ownerId;
-      if (ownerId.isEmpty) return; // Không rõ admin → bỏ qua
+      final uid = session.uid;
 
-      await _db.collection('notifications').add({
+      // ignore: avoid_print
+      print('[NotificationService] push() called: type=$type, ownerId=$ownerId, uid=$uid');
+
+      // Nếu không có ownerId thì dùng uid làm recipientId (trường hợp admin tự quản lý)
+      final recipient = ownerId.isNotEmpty ? ownerId : uid;
+      if (recipient.isEmpty) {
+        // ignore: avoid_print
+        print('[NotificationService] Bỏ qua: cả ownerId lẫn uid đều rỗng (chưa đăng nhập?)');
+        return;
+      }
+
+      final docRef = await _db.collection('notifications').add({
         'type': type,
         'title': title,
         'message': message,
         'projectName': projectName,
         'referenceId': referenceId,
-        'recipientIds': [ownerId],
+        'recipientIds': [recipient],
         'readBy': [],
-        'senderUid': session.uid,
+        'senderUid': uid,
         'senderName': session.fullName,
         'createdAt': FieldValue.serverTimestamp(),
       });
+      // ignore: avoid_print
+      print('[NotificationService] Đã gửi thông báo thành công: ${docRef.id}');
     } catch (e) {
       // Không làm crash app nếu push thông báo thất bại
       // ignore: avoid_print
@@ -99,6 +112,25 @@ class NotificationService {
       title: 'Dữ liệu cây mới 🌳',
       message:
           '$worker đã thêm $quantity cây "$species" tại ô mẫu $plotCode (dự án "$project")',
+      projectName: project,
+      referenceId: docId,
+    );
+  }
+
+  /// Gửi thông báo khi worker cập nhật tọa độ ô mẫu.
+  Future<void> pushPlotLocationUpdate({
+    required String project,
+    required String plotCode,
+    required String docId,
+    required double lat,
+    required double lng,
+  }) async {
+    final worker = UserSession().fullName;
+    final locationStr = '(${lat.toStringAsFixed(6)}, ${lng.toStringAsFixed(6)})';
+    await push(
+      type: 'plot_update',
+      title: 'Cập nhật tọa độ ô mẫu 📍',
+      message: '$worker đã cập nhật vị trí cho ô mẫu $plotCode (dự án "$project"): $locationStr',
       projectName: project,
       referenceId: docId,
     );

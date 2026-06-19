@@ -209,21 +209,61 @@ class HomeScreen extends StatelessWidget {
         collapseMode: CollapseMode.pin,
       ),
       actions: [
-        IconButton(
-          icon: const Icon(Icons.notifications_outlined, color: Colors.white),
-          tooltip: 'Thông báo',
-          onPressed: () => _showNotificationsDialog(context),
+        StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('notifications')
+              .where('recipientIds', arrayContains: UserSession().uid)
+              .snapshots(),
+          builder: (context, snapshot) {
+            bool hasUnread = false;
+            if (snapshot.hasData) {
+              for (var doc in snapshot.data!.docs) {
+                final data = doc.data() as Map<String, dynamic>;
+                final readBy = List<String>.from(data['readBy'] ?? []);
+                if (!readBy.contains(UserSession().uid)) {
+                  hasUnread = true;
+                  break;
+                }
+              }
+            }
+
+            return Stack(
+              alignment: Alignment.center,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.notifications_outlined, color: Colors.white),
+                  tooltip: 'Thông báo',
+                  onPressed: () => _showNotificationsDialog(context),
+                ),
+                if (hasUnread)
+                  Positioned(
+                    right: 8,
+                    top: 12,
+                    child: Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: AppTheme.danger,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: AppTheme.primary, width: 1.5),
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
         ),
         const SizedBox(width: 4),
       ],
     );
   }
 
-  // Hiển thị dialog Thông báo
   static void _showNotificationsDialog(BuildContext context) {
     showModalBottomSheet(
       context: context,
       backgroundColor: AppTheme.surface,
+      isScrollControlled: true,
+      constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -246,28 +286,71 @@ class HomeScreen extends StatelessWidget {
               const SizedBox(height: 16),
               const Text('Thông báo', style: TextStyle(color: AppTheme.textPrimary, fontSize: 17, fontWeight: FontWeight.w700)),
               const SizedBox(height: 16),
-              _NotificationItem(
-                icon: Icons.cloud_done_outlined,
-                color: AppTheme.success,
-                title: 'Đồng bộ hoàn tất',
-                subtitle: 'Tất cả nhật ký đã được đồng bộ lên cloud',
-                time: 'Vừa xong',
-              ),
-              const SizedBox(height: 10),
-              _NotificationItem(
-                icon: Icons.warning_amber_rounded,
-                color: AppTheme.warning,
-                title: 'Nhắc nhở tuần tra',
-                subtitle: 'Khu vực Đắk Lắk chưa được kiểm tra hôm nay',
-                time: '2 giờ trước',
-              ),
-              const SizedBox(height: 10),
-              _NotificationItem(
-                icon: Icons.info_outline,
-                color: AppTheme.info,
-                title: 'Cập nhật hệ thống',
-                subtitle: 'Phiên bản mới v1.1.0 đã sẵn sàng',
-                time: 'Hôm qua',
+              Expanded(
+                child: StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('notifications')
+                      .where('recipientIds', arrayContains: UserSession().uid)
+                      .orderBy('createdAt', descending: true)
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator(color: AppTheme.accent));
+                    }
+                    if (snapshot.hasError) {
+                      return Center(child: Text('Lỗi: ${snapshot.error}', style: const TextStyle(color: AppTheme.danger)));
+                    }
+                    if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                      return const Center(child: Text('Không có thông báo nào.', style: TextStyle(color: AppTheme.textSecondary)));
+                    }
+
+                    final docs = snapshot.data!.docs;
+                    return ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: docs.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 10),
+                      itemBuilder: (context, index) {
+                        final doc = docs[index];
+                        final data = doc.data() as Map<String, dynamic>;
+                        
+                        // Đánh dấu đã đọc khi hiển thị
+                        final readBy = List<String>.from(data['readBy'] ?? []);
+                        if (!readBy.contains(UserSession().uid)) {
+                          doc.reference.update({
+                            'readBy': FieldValue.arrayUnion([UserSession().uid])
+                          });
+                        }
+
+                        final type = data['type'] as String? ?? 'general';
+                        IconData icon = Icons.info_outline;
+                        Color color = AppTheme.info;
+
+                        if (type == 'new_project') {
+                          icon = Icons.folder_special;
+                          color = AppTheme.success;
+                        } else if (type == 'plot_update') {
+                          icon = Icons.edit_location_alt_outlined;
+                          color = AppTheme.warning;
+                        }
+
+                        String timeStr = '';
+                        if (data['createdAt'] != null) {
+                          final ts = data['createdAt'] as Timestamp;
+                          final date = ts.toDate();
+                          timeStr = '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')} ${date.day}/${date.month}';
+                        }
+
+                        return _NotificationItem(
+                          icon: icon,
+                          color: color,
+                          title: data['title'] ?? 'Thông báo',
+                          subtitle: data['message'] ?? '',
+                          time: timeStr,
+                        );
+                      },
+                    );
+                  },
+                ),
               ),
             ],
           ),

@@ -106,8 +106,11 @@ class _CheckInScreenState extends State<CheckInScreen> {
       }
 
       // Lấy vị trí thực từ GPS
+      // forceAndroidLocationManager: true → bypass Fused Location Provider (Google Play Services)
+      // dùng Android Location Manager thuần, tránh lỗi GoogleApiManager SecurityException
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
+        forceAndroidLocationManager: true,
       );
 
       setState(() {

@@ -4,6 +4,7 @@ import '../main.dart';
 import '../models/models.dart';
 import '../services/user_session.dart';
 import '../services/notification_service.dart';
+import 'package:geolocator/geolocator.dart';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
@@ -322,9 +323,81 @@ class _PlotCard extends StatelessWidget {
               ),
             ],
           ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => _updateLocation(context, plot),
+              icon: const Icon(Icons.my_location, size: 16),
+              label: const Text('Cập nhật vị trí GPS', style: TextStyle(fontWeight: FontWeight.w600)),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppTheme.accent,
+                side: const BorderSide(color: AppTheme.accent, width: 0.8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+              ),
+            ),
+          ),
         ],
       ),
     );
+  }
+
+  Future<void> _updateLocation(BuildContext context, _PlotItem plot) async {
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Vui lòng bật GPS', style: TextStyle(color: Colors.white)), backgroundColor: AppTheme.warning));
+        }
+        return;
+      }
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) return;
+      }
+      if (permission == LocationPermission.deniedForever) return;
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Đang lấy tọa độ GPS...', style: TextStyle(color: Colors.white)), backgroundColor: AppTheme.info));
+      }
+
+      Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high);
+
+      await FirebaseFirestore.instance
+          .collection('inventory_plots')
+          .doc(plot.id)
+          .update({
+        'latitude': position.latitude,
+        'longitude': position.longitude,
+      });
+
+      await NotificationService().pushPlotLocationUpdate(
+        project: plot.project,
+        plotCode: plot.plotCode,
+        docId: plot.id,
+        lat: position.latitude,
+        lng: position.longitude,
+      );
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text('Cập nhật vị trí thành công!', style: TextStyle(color: Colors.white)),
+                backgroundColor: AppTheme.success));
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Lỗi: $e', style: const TextStyle(color: Colors.white)), backgroundColor: AppTheme.danger));
+      }
+    }
   }
 }
 
