@@ -27,7 +27,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       final logbooks = await FirebaseFirestore.instance.collection('logbook_activities').where('user', isEqualTo: UserSession().uid).count().get();
       final checkins = await FirebaseFirestore.instance.collection('checkins').where('createdBy', isEqualTo: UserSession().uid).count().get();
-      final projectsSnap = await FirebaseFirestore.instance.collection('forest_projects').where('ownerUid', isEqualTo: UserSession().ownerId).get();
+      final projectsSnap = await FirebaseFirestore.instance.collection('forest_projects').where('ownerUid', isEqualTo: UserSession().ownerId).where('workerUids', arrayContains: UserSession().uid).get();
 
       if (mounted) {
         setState(() {

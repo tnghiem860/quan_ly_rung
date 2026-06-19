@@ -43,7 +43,7 @@ class _NewLogbookScreenState extends State<NewLogbookScreen> {
   Future<void> _fetchData() async {
     try {
       final actSnap = await FirebaseFirestore.instance.collection('activities').get();
-      final projSnap = await FirebaseFirestore.instance.collection('forest_projects').where('ownerUid', isEqualTo: UserSession().ownerId).get();
+      final projSnap = await FirebaseFirestore.instance.collection('forest_projects').where('ownerUid', isEqualTo: UserSession().ownerId).where('workerUids', arrayContains: UserSession().uid).get();
       
       setState(() {
         _activities = actSnap.docs.map((doc) => doc['name'] as String).toList();

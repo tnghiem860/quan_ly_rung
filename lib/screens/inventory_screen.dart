@@ -801,6 +801,7 @@ class _AddTreeSheetState extends State<_AddTreeSheet> {
     final snap = await FirebaseFirestore.instance
         .collection('forest_projects')
         .where('ownerUid', isEqualTo: UserSession().ownerId)
+        .where('workerUids', arrayContains: UserSession().uid)
         .get();
     final list = snap.docs.map((d) {
       final data = d.data();
