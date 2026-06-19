@@ -236,8 +236,7 @@ class _CheckInScreenState extends State<CheckInScreen> {
             StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
                   .collection('checkins')
-                  .orderBy('timestamp', descending: true)
-                  .limit(5)
+                  .where('createdBy', isEqualTo: UserSession().uid)
                   .snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
@@ -255,10 +254,17 @@ class _CheckInScreenState extends State<CheckInScreen> {
                 }
 
                 final docs = snapshot.data!.docs;
+                var records = docs.map((doc) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  return CheckInRecord.fromFirestore(data, doc.id);
+                }).toList();
+                
+                // Sort locally to avoid composite index requirement
+                records.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+                if (records.length > 5) records = records.sublist(0, 5);
+
                 return Column(
-                  children: docs.map((doc) {
-                    final data = doc.data() as Map<String, dynamic>;
-                    final record = CheckInRecord.fromFirestore(data, doc.id);
+                  children: records.map((record) {
                     return _CheckInHistoryTile(record: record);
                   }).toList(),
                 );

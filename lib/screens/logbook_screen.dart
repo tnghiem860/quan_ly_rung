@@ -46,8 +46,7 @@ class _LogbookScreenState extends State<LogbookScreen> {
     }
 
     Query query = FirebaseFirestore.instance.collection('logbook_activities')
-      .where('user', isEqualTo: UserSession().uid)
-      .orderBy('date', descending: true);
+      .where('user', isEqualTo: UserSession().uid);
       
     if (_filter != 'Tất cả') {
       query = query.where('activityType', isEqualTo: _filter);
@@ -100,6 +99,9 @@ class _LogbookScreenState extends State<LogbookScreen> {
                   final data = doc.data() as Map<String, dynamic>;
                   return LogbookEntry.fromFirestore(data, doc.id);
                 }).toList();
+                
+                // Sort locally to avoid Firestore composite index requirement
+                logs.sort((a, b) => b.date.compareTo(a.date));
 
                 return ListView.separated(
                   padding: const EdgeInsets.all(16),

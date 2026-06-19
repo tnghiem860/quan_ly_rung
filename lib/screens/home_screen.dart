@@ -44,8 +44,6 @@ class HomeScreen extends StatelessWidget {
                   stream: FirebaseFirestore.instance
                       .collection('logbook_activities')
                       .where('user', isEqualTo: UserSession().uid)
-                      .orderBy('date', descending: true)
-                      .limit(5)
                       .snapshots(),
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
@@ -69,10 +67,17 @@ class HomeScreen extends StatelessWidget {
                     }
 
                     final docs = snapshot.data!.docs;
+                    var entries = docs.map((doc) {
+                      final data = doc.data() as Map<String, dynamic>;
+                      return LogbookEntry.fromFirestore(data, doc.id);
+                    }).toList();
+                    
+                    // Sort locally and limit to 5 to avoid composite index requirements
+                    entries.sort((a, b) => b.date.compareTo(a.date));
+                    if (entries.length > 5) entries = entries.sublist(0, 5);
+
                     return Column(
-                      children: docs.map((doc) {
-                        final data = doc.data() as Map<String, dynamic>;
-                        final entry = LogbookEntry.fromFirestore(data, doc.id);
+                      children: entries.map((entry) {
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 10),
                           child: ActivityTile(entry: entry),
