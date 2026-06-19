@@ -131,24 +131,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ],
           ),
           const SizedBox(height: 14),
-          Text(name, style: const TextStyle(color: AppTheme.textPrimary, fontSize: 20, fontWeight: FontWeight.w700)),
+          Text(name, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700)),
           const SizedBox(height: 4),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
-              color: AppTheme.accent.withValues(alpha: 0.2),
+              color: Colors.white.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Text(role, style: const TextStyle(color: AppTheme.accent, fontSize: 12, fontWeight: FontWeight.w500)),
+            child: Text(role, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500)),
           ),
           const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               _StatBadge(label: 'Nhật ký', value: '$_logbookCount'),
-              Container(width: 0.5, height: 36, color: AppTheme.border),
+              Container(width: 0.5, height: 36, color: Colors.white38),
               _StatBadge(label: 'Check-in', value: '$_checkinCount'),
-              Container(width: 0.5, height: 36, color: AppTheme.border),
+              Container(width: 0.5, height: 36, color: Colors.white38),
               _StatBadge(label: 'Dự án', value: '$_projectCount'),
             ],
           ),
@@ -260,8 +260,8 @@ class _StatBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(children: [
-      Text(value, style: const TextStyle(color: AppTheme.textPrimary, fontSize: 20, fontWeight: FontWeight.w700)),
-      Text(label, style: const TextStyle(color: AppTheme.textSecondary, fontSize: 11)),
+      Text(value, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700)),
+      Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11)),
     ]);
   }
 }
