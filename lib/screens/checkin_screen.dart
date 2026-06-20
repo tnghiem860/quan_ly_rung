@@ -10,6 +10,7 @@ import '../services/user_session.dart';
 import '../services/notification_service.dart';
 import '../widgets/section_header.dart';
 
+
 class CheckInScreen extends StatefulWidget {
   const CheckInScreen({super.key});
 
@@ -34,6 +35,7 @@ class _CheckInScreenState extends State<CheckInScreen> {
     super.initState();
     _fetchData();
   }
+
 
   Future<void> _fetchData() async {
     try {
@@ -68,7 +70,7 @@ class _CheckInScreenState extends State<CheckInScreen> {
     setState(() => _isLocating = true);
 
     try {
-      // Kiểm tra dịch vụ GPS có bật không
+      // [Flowchart 3] Node: "GPS bật?"
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         if (mounted) {
@@ -80,7 +82,7 @@ class _CheckInScreenState extends State<CheckInScreen> {
         return;
       }
 
-      // Kiểm tra và yêu cầu quyền truy cập vị trí
+      // [Flowchart 3] Node: "Quyền location?"
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
@@ -105,14 +107,13 @@ class _CheckInScreenState extends State<CheckInScreen> {
         return;
       }
 
-      // Lấy vị trí thực từ GPS
-      // forceAndroidLocationManager: true → bypass Fused Location Provider (Google Play Services)
-      // dùng Android Location Manager thuần, tránh lỗi GoogleApiManager SecurityException
+
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
         forceAndroidLocationManager: true,
       );
 
+      // [Flowchart 3] Node: "Hiển thị toạ độ trên bản đồ + card"
       setState(() {
         _isLocating = false;
         _hasLocation = true;
@@ -137,13 +138,16 @@ class _CheckInScreenState extends State<CheckInScreen> {
     }
   }
 
+  // ── [Flowchart 3] Node: "Xác nhận Check-in" ──────────────────────────────
+  // Lưu check-in vào Firestore: online (synced=true) hoặc offline (synced=false).
+  // Nếu online: gửi thông báo lên web admin qua NotificationService.
   Future<void> _checkIn() async {
     if (!_hasLocation) return;
 
     setState(() => _isLocating = true);
 
     try {
-      // Kiểm tra mạng
+      // [Flowchart 3] Node: "Online?"
       final connectivityResult = await Connectivity().checkConnectivity();
       bool isOffline = connectivityResult == ConnectivityResult.none;
 
@@ -159,10 +163,12 @@ class _CheckInScreenState extends State<CheckInScreen> {
       };
 
       if (isOffline) {
+        // [Flowchart 3] Nhánh Offline: Lưu Firestore local, synced=false
         docRef.set(dataToSave);
       } else {
+        // [Flowchart 3] Nhánh Online: Lưu Firestore, synced=true
         await docRef.set(dataToSave);
-        // Gửi thông báo lên web admin (chỉ khi online)
+        // [Flowchart 3] Node: "NotificationService.pushCheckIn → Web Admin"
         await NotificationService().pushCheckIn(
           project: _selectedProject ?? '',
           docId: docRef.id,

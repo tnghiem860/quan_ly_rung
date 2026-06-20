@@ -1,24 +1,40 @@
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'dart:convert';
-import 'package:image_picker/image_picker.dart';
-import 'package:geolocator/geolocator.dart';
-import 'dart:io';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:path_provider/path_provider.dart';
 import '../main.dart';
 import '../models/models.dart';
 import '../widgets/stat_card.dart';
 import '../services/user_session.dart';
 import '../widgets/activity_tile.dart';
-import '../widgets/section_header.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'main_shell.dart';
 import 'new_logbook_screen.dart';
 
-class HomeScreen extends StatelessWidget {
+
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  bool _isOnline = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkInitialConnectivity();
+  }
+
+
+  Future<void> _checkInitialConnectivity() async {
+    final result = await Connectivity().checkConnectivity();
+    if (mounted) {
+      setState(() {
+        _isOnline = result != ConnectivityResult.none;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -32,12 +48,21 @@ class HomeScreen extends StatelessWidget {
             sliver: SliverList(
               delegate: SliverChildListDelegate([
                 const SizedBox(height: 20),
-                _buildOnlineStatus(),
+                // ── [Flowchart 6] Node: "Indicator Online/Offline" ──
+                // StreamBuilder lắng nghe Connectivity.onConnectivityChanged
+                // Hiển thị ở dạng cây xanh (Online) hoặc đỏ (Offline)
+                _buildOnlineStatus(context),
                 const SizedBox(height: 20),
+                // ── [Flowchart 1] Node: "Dashboard - KPI" ──
+                // Thống kê: Dự án, Tổng nhật ký, Chưa đồng bộ, Số lần Check-in
                 _buildStatsGrid(context),
                 const SizedBox(height: 24),
+                // ── [Flowchart 1] Node: "Thác tác nhanh" ──
+                // Nút Check-in GPS và Nhật ký mới
                 _buildQuickActions(context),
                 const SizedBox(height: 24),
+                // ── [Flowchart 1] Node: "Hoạt động gần đây" ──
+                // Stream 5 nhật ký mới nhất từ Firestore, sắp xếp cục bộ
                 const SectionHeader(title: 'Hoạt động gần đây'),
                 const SizedBox(height: 12),
                 StreamBuilder<QuerySnapshot>(
@@ -375,83 +400,155 @@ class HomeScreen extends StatelessWidget {
     return '$weekday, ${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}';
   }
 
-  Widget _buildOnlineStatus() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppTheme.cardBg,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppTheme.border, width: 0.5),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              color: AppTheme.success,
-              borderRadius: BorderRadius.circular(4),
-              boxShadow: [BoxShadow(color: AppTheme.success.withOpacity(0.4), blurRadius: 6, spreadRadius: 2)],
+  Widget _buildOnlineStatus(BuildContext context) {
+    return StreamBuilder<ConnectivityResult>(
+      stream: Connectivity().onConnectivityChanged,
+      initialData: _isOnline ? ConnectivityResult.wifi : ConnectivityResult.none,
+      builder: (context, snapshot) {
+        final result = snapshot.data ?? ConnectivityResult.none;
+        final isOnline = result != ConnectivityResult.none;
+
+        // Cập nhật lại state nếu giá trị thay đổi
+        if (isOnline != _isOnline) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() => _isOnline = isOnline);
+          });
+        }
+
+        final dotColor = isOnline ? AppTheme.success : AppTheme.danger;
+        final statusText = isOnline ? 'Đang kết nối' : 'Mất kết nối';
+        final iconData = isOnline ? Icons.wifi : Icons.wifi_off;
+        final iconColor = isOnline ? AppTheme.accent : AppTheme.danger;
+        final labelText = isOnline ? 'Online' : 'Offline';
+        final labelColor = isOnline ? AppTheme.textSecondary : AppTheme.danger;
+
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: isOnline
+                ? AppTheme.cardBg
+                : AppTheme.danger.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: isOnline ? AppTheme.border : AppTheme.danger.withValues(alpha: 0.35),
+              width: 0.5,
             ),
           ),
-          const SizedBox(width: 8),
-          const Text('Đang kết nối', style: TextStyle(color: AppTheme.success, fontSize: 13, fontWeight: FontWeight.w500)),
-          const Spacer(),
-          const Icon(Icons.wifi, color: AppTheme.accent, size: 16),
-          const SizedBox(width: 4),
-          const Text('Online', style: TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
-        ],
-      ),
+          child: Row(
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: dotColor,
+                  borderRadius: BorderRadius.circular(4),
+                  boxShadow: [
+                    BoxShadow(
+                      color: dotColor.withValues(alpha: 0.4),
+                      blurRadius: 6,
+                      spreadRadius: 2,
+                    )
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 200),
+                child: Text(
+                  statusText,
+                  key: ValueKey(statusText),
+                  style: TextStyle(
+                    color: dotColor,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              const Spacer(),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 200),
+                child: Icon(iconData, key: ValueKey(iconData), color: iconColor, size: 16),
+              ),
+              const SizedBox(width: 4),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 200),
+                child: Text(
+                  labelText,
+                  key: ValueKey(labelText),
+                  style: TextStyle(color: labelColor, fontSize: 12),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
   Widget _buildStatsGrid(BuildContext context) {
-    return FutureBuilder<List<int>>(
-      future: Future.wait([
-        FirebaseFirestore.instance.collection('forest_projects').where('ownerUid', isEqualTo: UserSession().ownerId).where('workerUids', arrayContains: UserSession().uid).count().get().then((res) => res.count ?? 0).catchError((e) { debugPrint('Error projects: $e'); return 0; }),
-        FirebaseFirestore.instance.collection('logbook_activities').where('user', isEqualTo: UserSession().uid).count().get().then((res) => res.count ?? 0).catchError((e) { debugPrint('Error logs: $e'); return 0; }),
-        FirebaseFirestore.instance.collection('logbook_activities').where('user', isEqualTo: UserSession().uid).where('synced', isEqualTo: false).count().get().then((res) => res.count ?? 0).catchError((e) { debugPrint('Error unsynced logs: $e'); return 0; }),
-        FirebaseFirestore.instance.collection('checkins').where('createdBy', isEqualTo: UserSession().uid).count().get().then((res) => res.count ?? 0).catchError((e) { debugPrint('Error checkins: $e'); return 0; }),
-      ]),
-      builder: (context, snapshot) {
-        final data = snapshot.data ?? [0, 0, 0, 0];
-        return GridView.count(
-          crossAxisCount: 2,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
-          childAspectRatio: 1.4,
-          children: [
-            StatCard(
-              label: 'Dự án', 
-              value: data[0].toString(), 
-              icon: Icons.folder_outlined, 
-              color: AppTheme.accent,
-              onTap: () => MainShellState.of(context)?.switchTab(3), // Điều tra
-            ),
-            StatCard(
-              label: 'Tổng nhật ký', 
-              value: data[1].toString(), 
-              icon: Icons.edit_note, 
-              color: AppTheme.info,
-              onTap: () => MainShellState.of(context)?.switchTab(2), // Nhật ký
-            ),
-            StatCard(
-              label: 'Chưa đồng bộ', 
-              value: data[2].toString(), 
-              icon: Icons.cloud_off_outlined, 
-              color: AppTheme.warning,
-              onTap: () => MainShellState.of(context)?.switchTab(2), // Nhật ký
-            ),
-            StatCard(
-              label: 'Số lần Check-in', 
-              value: data[3].toString(), 
-              icon: Icons.location_on_outlined, 
-              color: AppTheme.success,
-              onTap: () => MainShellState.of(context)?.switchTab(1), // Check-in
-            ),
-          ],
+    final uid = UserSession().uid;
+    final ownerId = UserSession().ownerId;
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance.collection('forest_projects').where('ownerUid', isEqualTo: ownerId).where('workerUids', arrayContains: uid).snapshots(),
+      builder: (context, projSnap) {
+        return StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance.collection('logbook_activities').where('user', isEqualTo: uid).snapshots(),
+          builder: (context, logSnap) {
+            return StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance.collection('checkins').where('createdBy', isEqualTo: uid).snapshots(),
+              builder: (context, checkinSnap) {
+                final data0 = projSnap.data?.docs.length ?? 0;
+                final data1 = logSnap.data?.docs.length ?? 0;
+                int data2 = 0;
+                if (logSnap.hasData) {
+                  data2 = logSnap.data!.docs.where((d) => (d.data() as Map<String, dynamic>)['synced'] == false).length;
+                }
+                final data3 = checkinSnap.data?.docs.length ?? 0;
+
+                return GridView.count(
+                  crossAxisCount: 2,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: 1.4,
+                  children: [
+                    StatCard(
+                      label: 'Dự án', 
+                      value: data0.toString(), 
+                      icon: Icons.folder_outlined, 
+                      color: AppTheme.accent,
+                      onTap: () => MainShellState.of(context)?.switchTab(3), // Điều tra
+                    ),
+                    StatCard(
+                      label: 'Tổng nhật ký', 
+                      value: data1.toString(), 
+                      icon: Icons.edit_note, 
+                      color: AppTheme.info,
+                      onTap: () => MainShellState.of(context)?.switchTab(2), // Nhật ký
+                    ),
+                    StatCard(
+                      label: 'Chưa đồng bộ', 
+                      value: data2.toString(), 
+                      icon: Icons.cloud_off_outlined, 
+                      color: AppTheme.warning,
+                      onTap: () => MainShellState.of(context)?.switchTab(2), // Nhật ký
+                    ),
+                    StatCard(
+                      label: 'Số lần Check-in', 
+                      value: data3.toString(), 
+                      icon: Icons.location_on_outlined, 
+                      color: AppTheme.success,
+                      onTap: () => MainShellState.of(context)?.switchTab(1), // Check-in
+                    ),
+                  ],
+                );
+              },
+            );
+          },
         );
       },
     );
@@ -491,168 +588,10 @@ class HomeScreen extends StatelessWidget {
                 },
               ),
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _QuickActionButton(
-                icon: Icons.camera_alt_outlined,
-                label: 'Chụp ảnh',
-                color: AppTheme.warning,
-                onTap: () => _quickTakePhoto(context),
-              ),
-            ),
           ],
         ),
       ],
     );
-  }
-
-  // Chụp ảnh nhanh → thử camera trước, nếu không khả dụng thì mở gallery
-  static Future<void> _quickTakePhoto(BuildContext context) async {
-    final picker = ImagePicker();
-    XFile? photo;
-
-    try {
-      photo = await picker.pickImage(
-        source: ImageSource.camera,
-        maxWidth: 800,
-        maxHeight: 800,
-        imageQuality: 50,
-      );
-    } catch (_) {
-      // Camera không khả dụng → fallback gallery
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Camera không khả dụng, mở thư viện ảnh...'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
-      await Future.delayed(const Duration(milliseconds: 600));
-      try {
-        photo = await picker.pickImage(
-          source: ImageSource.gallery,
-          maxWidth: 800,
-          maxHeight: 800,
-          imageQuality: 50,
-        );
-      } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Lỗi mở ảnh: $e'), backgroundColor: AppTheme.danger),
-          );
-        }
-        return;
-      }
-    }
-
-    if (photo == null) return;
-
-    try {
-      if (!context.mounted) return;
-      final connectivityResult = await Connectivity().checkConnectivity();
-      bool isOffline = connectivityResult == ConnectivityResult.none;
-
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
-              const SizedBox(width: 12),
-              Text(isOffline ? 'Đang lưu ảnh cục bộ...' : 'Đang tải ảnh lên...'),
-            ],
-          ),
-          backgroundColor: AppTheme.primaryLight,
-          duration: const Duration(seconds: 10),
-        ),
-      );
-
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final fileName = 'quick_photo_$timestamp.jpg';
-      final Uint8List bytes = await photo.readAsBytes();
-      final String storagePath = 'logbook_photos/$fileName';
-      
-      String? downloadUrl;
-      String? localPath;
-
-      if (isOffline) {
-        // Lưu cục bộ
-        final dir = await getApplicationDocumentsDirectory();
-        final localFile = File('${dir.path}/$fileName');
-        await localFile.writeAsBytes(bytes);
-        localPath = localFile.path;
-      } else {
-        // Upload lên Storage
-        final storageRef = FirebaseStorage.instance.ref();
-        final imageRef = storageRef.child(storagePath);
-        await imageRef.putData(bytes);
-        downloadUrl = await imageRef.getDownloadURL();
-      }
-
-      // Lấy vị trí GPS thực (nếu có)
-      double lat = 0;
-      double lng = 0;
-      try {
-        bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-        if (serviceEnabled) {
-          LocationPermission perm = await Geolocator.checkPermission();
-          if (perm == LocationPermission.denied) {
-            perm = await Geolocator.requestPermission();
-          }
-          if (perm == LocationPermission.whileInUse || perm == LocationPermission.always) {
-            Position pos = await Geolocator.getCurrentPosition(
-              desiredAccuracy: LocationAccuracy.high,
-            );
-            lat = pos.latitude;
-            lng = pos.longitude;
-          }
-        }
-      } catch (_) {}
-
-      final docRef = FirebaseFirestore.instance.collection('quick_photos').doc();
-      final dataToSave = {
-        'url': downloadUrl,
-        'localPath': localPath,
-        'storagePath': storagePath,
-        'fileName': fileName,
-        'location': {'lat': lat, 'lng': lng},
-        'timestamp': Timestamp.fromDate(DateTime.now()),
-        'synced': !isOffline,
-        'createdBy': UserSession().uid,
-      };
-
-      if (isOffline) {
-        docRef.set(dataToSave);
-      } else {
-        await docRef.set(dataToSave);
-      }
-
-      if (!context.mounted) return;
-      
-      final msg = isOffline 
-          ? 'Đã lưu ngoại tuyến! Sẽ tự động đồng bộ khi có mạng.'
-          : 'Đã tải ảnh lên hệ thống thành công!';
-      
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(msg, style: const TextStyle(color: Colors.white)),
-          backgroundColor: isOffline ? AppTheme.warning : AppTheme.success,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        ),
-      );
-    } catch (e) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Lỗi: $e'),
-          backgroundColor: AppTheme.danger,
-        ),
-      );
-    }
   }
 }
 

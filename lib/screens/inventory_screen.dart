@@ -5,7 +5,13 @@ import '../models/models.dart';
 import '../services/user_session.dart';
 import '../services/notification_service.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 
+/// [Flowchart 5 - Điều tra rừng]
+/// Màn hình gồm 2 tab:
+///   - Tab 1 "Ô mẫu": hiển thị danh sách ô mẫu (admin tạo sẵn),
+///     worker chỉ cập nhật vị trí GPS.
+///   - Tab 2 "Dữ liệu cây": worker thêm/xóa bản ghi cây.
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
 
@@ -49,6 +55,8 @@ class _InventoryScreenState extends State<InventoryScreen>
           ],
         ),
       ),
+      // ── [Flowchart 5] Node: "Thêm mới" → mở _AddTreeSheet ──
+      // Worker nhấn FAB → nhập thông tin cây → lưu vào inventory_trees
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'inventory_fab',
         onPressed: () => _showAddTreeSheet(context),
@@ -67,7 +75,7 @@ class _InventoryScreenState extends State<InventoryScreen>
       ),
     );
   }
-
+  // ── [Flowchart 5] Node: "Xóa" → Xác nhận xóa → xóa khỏi Firestore inventory_trees ──
   Future<void> _confirmDeleteTree(
       BuildContext context, String docId) async {
     final confirmed = await showDialog<bool>(
@@ -139,7 +147,9 @@ class _InventoryScreenState extends State<InventoryScreen>
 }
 
 // ─────────────────────────────────────────────────────────────
-// TAB: Ô MẪU (PLOTS)
+// [Flowchart 5] TAB 1: Ô MẪU (PLOTS)
+// Hiển thị danh sách ô mẫu từ Firestore inventory_plots.
+// Worker KHÔNG tạo ô mẫu mới — chỉ xem và cập nhật GPS.
 // ─────────────────────────────────────────────────────────────
 class _PlotsTab extends StatelessWidget {
   final VoidCallback onAddTree;
@@ -147,6 +157,7 @@ class _PlotsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // ── [Flowchart 5] Node: "Tải & hiển thị danh sách ô mẫu - inventory_plots" ──
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('inventory_plots')
@@ -343,8 +354,11 @@ class _PlotCard extends StatelessWidget {
     );
   }
 
+  // ── [Flowchart 5] Node: "Cập nhật vị trí GPS" ──
+  // Lấy tọa độ thực địa → ghi vào inventory_plots → notify web admin.
   Future<void> _updateLocation(BuildContext context, _PlotItem plot) async {
     try {
+      // [Flowchart 5] Kiểm tra dịch vụ GPS
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         if (context.mounted) {
@@ -365,24 +379,40 @@ class _PlotCard extends StatelessWidget {
             const SnackBar(content: Text('Đang lấy tọa độ GPS...', style: TextStyle(color: Colors.white)), backgroundColor: AppTheme.info));
       }
 
+      // [Flowchart 5] Node: "Geolocator.getCurrentPosition"
       Position position = await Geolocator.getCurrentPosition(
           desiredAccuracy: LocationAccuracy.high);
 
-      await FirebaseFirestore.instance
-          .collection('inventory_plots')
-          .doc(plot.id)
-          .update({
+      final connectivityResult = await Connectivity().checkConnectivity();
+      bool isOffline = connectivityResult == ConnectivityResult.none;
+
+      final docRef = FirebaseFirestore.instance.collection('inventory_plots').doc(plot.id);
+      final dataToUpdate = {
         'latitude': position.latitude,
         'longitude': position.longitude,
-      });
+      };
 
-      await NotificationService().pushPlotLocationUpdate(
-        project: plot.project,
-        plotCode: plot.plotCode,
-        docId: plot.id,
-        lat: position.latitude,
-        lng: position.longitude,
-      );
+      // [Flowchart 5] Node: "Cập nhật lat/lng vào Firestore inventory_plots"
+      if (isOffline) {
+        docRef.update(dataToUpdate);
+        NotificationService().pushPlotLocationUpdate(
+          project: plot.project,
+          plotCode: plot.plotCode,
+          docId: plot.id,
+          lat: position.latitude,
+          lng: position.longitude,
+        );
+      } else {
+        await docRef.update(dataToUpdate);
+        // [Flowchart 5] Node: "NotificationService.pushPlotLocationUpdate → Web Admin"
+        await NotificationService().pushPlotLocationUpdate(
+          project: plot.project,
+          plotCode: plot.plotCode,
+          docId: plot.id,
+          lat: position.latitude,
+          lng: position.longitude,
+        );
+      }
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
@@ -437,7 +467,9 @@ class _InfoChip extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────
-// TAB: DỮ LIỆU CÂY
+// [Flowchart 5] TAB 2: DỮ LIỆU CÂY (inventory_trees)
+// Stream realtime từ Firestore, hỗ trợ tìm kiếm theo tên/loài.
+// Worker có thể: thêm mới (FAB) hoặc xóa (swipe / nút rác).
 // ─────────────────────────────────────────────────────────────
 class _TreeDataTab extends StatefulWidget {
   final Future<void> Function(BuildContext, String) onDelete;
@@ -756,7 +788,11 @@ class _TreeRow extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────
-// BOTTOM SHEET: THÊM DỮ LIỆU CÂY
+// [Flowchart 5] Node: "Thêm mới → Chọn ô mẫu + nhập loài/DBH/chiều cao/SL"
+// Bottom sheet worker nhập dữ liệu cây:
+//   1. Chọn Dự án → tự load danh sách Ô mẫu
+//   2. Chọn Ô mẫu → nhập loài cây, DBH, chiều cao, số lượng
+//   3. _save(): lưu vào inventory_trees + notify web admin
 // ─────────────────────────────────────────────────────────────
 class _AddTreeSheet extends StatefulWidget {
   const _AddTreeSheet();
@@ -797,6 +833,8 @@ class _AddTreeSheetState extends State<_AddTreeSheet> {
     super.dispose();
   }
 
+  // ── [Flowchart 5] Node: "Tải danh sách dự án - forest_projects" ──
+  // Lọc theo ownerUid và workerUids để chỉ lấy dự án worker thuộc về.
   Future<void> _loadProjects() async {
     final snap = await FirebaseFirestore.instance
         .collection('forest_projects')
@@ -823,6 +861,8 @@ class _AddTreeSheetState extends State<_AddTreeSheet> {
     }
   }
 
+  // ── [Flowchart 5] Node: "Tải danh sách ô mẫu - inventory_plots" ──
+  // Lấy ô mẫu theo projectId. Fallback tìm theo tên nếu không khớp ID.
   Future<void> _loadPlots(String projectId) async {
     setState(() {
       _loadingPlots = true;
@@ -865,6 +905,8 @@ class _AddTreeSheetState extends State<_AddTreeSheet> {
     }
   }
 
+  // ── [Flowchart 5] Node: "Lưu vào Firestore inventory_trees" ──
+  // Validate → add vào inventory_trees → pushTreeData → Web Admin.
   Future<void> _save() async {
     if (_selectedProjectId == null ||
         _selectedPlotId == null ||
@@ -877,7 +919,11 @@ class _AddTreeSheetState extends State<_AddTreeSheet> {
 
     setState(() => _saving = true);
     try {
-      final docRef = await FirebaseFirestore.instance.collection('inventory_trees').add({
+      final connectivityResult = await Connectivity().checkConnectivity();
+      bool isOffline = connectivityResult == ConnectivityResult.none;
+
+      final docRef = FirebaseFirestore.instance.collection('inventory_trees').doc();
+      final dataToSave = {
         'plotId': _selectedPlotId,
         'plotCode': _selectedPlotCode,
         'projectId': _selectedProjectId,
@@ -888,16 +934,28 @@ class _AddTreeSheetState extends State<_AddTreeSheet> {
         'quantity': int.tryParse(_qtyCtrl.text) ?? 1,
         'createdBy': UserSession().uid,
         'createdAt': FieldValue.serverTimestamp(),
-      });
+      };
 
-      // Gửi thông báo lên web admin
-      await NotificationService().pushTreeData(
-        project: _selectedProjectName ?? '',
-        plotCode: _selectedPlotCode ?? '',
-        species: _speciesCtrl.text.trim(),
-        quantity: int.tryParse(_qtyCtrl.text) ?? 1,
-        docId: docRef.id,
-      );
+      if (isOffline) {
+        docRef.set(dataToSave);
+        NotificationService().pushTreeData(
+          project: _selectedProjectName ?? '',
+          plotCode: _selectedPlotCode ?? '',
+          species: _speciesCtrl.text.trim(),
+          quantity: int.tryParse(_qtyCtrl.text) ?? 1,
+          docId: docRef.id,
+        );
+      } else {
+        await docRef.set(dataToSave);
+        // [Flowchart 5] Node: "NotificationService.pushTreeData → Web Admin"
+        await NotificationService().pushTreeData(
+          project: _selectedProjectName ?? '',
+          plotCode: _selectedPlotCode ?? '',
+          species: _speciesCtrl.text.trim(),
+          quantity: int.tryParse(_qtyCtrl.text) ?? 1,
+          docId: docRef.id,
+        );
+      }
 
       if (mounted) {
         Navigator.pop(context);

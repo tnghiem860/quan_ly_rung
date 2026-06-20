@@ -4,6 +4,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../main.dart';
 import '../services/user_session.dart';
 
+/// [Flowchart 1 - Tổng quan] Node: "Màn hình Login"
+/// Điểm vào khi người dùng chưa đăng nhập.
+/// Sau khi xác thực thành công → chuyển sang MainShell.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -40,11 +43,14 @@ class _LoginScreenState extends State<LoginScreen>
     super.dispose();
   }
 
+  // ── [Flowchart 2] Node: "Nhập Email / Password" ───────────────────────────
+  // Người dùng nhập thông tin → bấm nút Đăng nhập → gọi _login()
   Future<void> _login() async {
     final email = _emailCtrl.text.trim();
     final password = _passCtrl.text.trim();
 
     if (email.isEmpty || password.isEmpty) {
+      // [Flowchart 2] Node: "Hiện lỗi" → quay lại nhập
       setState(() => _errorMessage = 'Vui lòng nhập đầy đủ email và mật khẩu');
       return;
     }
@@ -55,7 +61,7 @@ class _LoginScreenState extends State<LoginScreen>
     });
 
     try {
-      // Sử dụng Firebase Auth để đăng nhập
+      // ── [Flowchart 2] Node: "Firebase Auth - signInWithEmailAndPassword" ──
       final credential = await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: email,
         password: password,
@@ -63,7 +69,7 @@ class _LoginScreenState extends State<LoginScreen>
 
       final uid = credential.user!.uid;
 
-      // Lấy thông tin user từ Firestore
+      // ── [Flowchart 2] Node: "Lấy thông tin user từ Firestore /users/uid" ──
       final userDoc = await FirebaseFirestore.instance
           .collection('users')
           .doc(uid)
@@ -124,8 +130,10 @@ class _LoginScreenState extends State<LoginScreen>
     }
   }
 
+  // ── [Flowchart 2] Node: "UserSession.init - uid, ownerId, fullName, role" ──
+  // Kiểm tra trạng thái tài khoản, lưu phiên và điều hướng vào app.
   void _proceedLogin(String uid, Map<String, dynamic> userData) {
-    // Kiểm tra trạng thái tài khoản
+    // [Flowchart 2] Nhánh: tài khoản bị khoá → hiện lỗi, không cho vào
     final status = userData['status'] ?? '';
     if (status != 'active' && status != 'Active') {
       setState(() {
@@ -135,9 +143,9 @@ class _LoginScreenState extends State<LoginScreen>
       return;
     }
 
-    // Đăng nhập thành công → lưu vào UserSession
+    // [Flowchart 2] Node: "Lưu vào UserSession" → uid, fullName, role, ownerId
     UserSession().login(
-      uid: uid, // Use auth uid
+      uid: uid,
       fullName: userData['fullName'] ?? userData['name'] ?? 'Không rõ',
       email: userData['email'] ?? '',
       phone: userData['phone'] ?? '',
@@ -146,6 +154,7 @@ class _LoginScreenState extends State<LoginScreen>
       ownerId: userData['ownerId'] ?? userData['createdBy'] ?? '',
     );
 
+    // [Flowchart 2] Node: "Navigator → MainShell"
     if (mounted) {
       Navigator.pushReplacementNamed(context, '/home');
     }

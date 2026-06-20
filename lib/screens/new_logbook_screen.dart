@@ -244,6 +244,12 @@ class _NewLogbookScreenState extends State<NewLogbookScreen> {
       if (isOffline) {
         // Không dùng await để tránh treo giao diện khi mất mạng
         docRef.set(dataToSave);
+        // Vẫn gọi tạo thông báo (Firestore sẽ lưu cache và đẩy lên sau)
+        NotificationService().pushLogbookEntry(
+          project: _selectedProject ?? '',
+          activityType: _selectedActivity ?? '',
+          docId: docRef.id,
+        );
       } else {
         // Đợi server xác nhận nếu đang có mạng
         await docRef.set(dataToSave);
